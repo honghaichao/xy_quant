@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>策略编辑器</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/editor/editor.main.min.css">
+<style>
+  :root { --bg:#0f172a; --card:#1e293b; --card2:#162032; --text:#e2e8f0; --muted:#94a3b8; --blue:#38bdf8; --green:#34d399; --red:#f87171; --border:#334155; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",monospace; height:100vh; display:flex; flex-direction:column; }
+  a { color:var(--blue); text-decoration:none; }
+
+  /* 顶部导航条 */
+  .nav { padding:10px 16px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); background:var(--card); }
+  .nav a { margin-right:14px; font-size:13px; }
+  .nav .nav-title { font-weight:700; font-size:15px; }
+
+  /* 主体：竖排左侧 Tab + 右侧内容区 */
+  .main { flex:1; display:flex; overflow:hidden; }
+  .sidebar { width:200px; background:var(--card); border-right:1px solid var(--border); display:flex; flex-direction:column; padding:12px 0; }
+  .sidebar .tab-btn { background:none; border:none; color:var(--muted); padding:12px 20px; text-align:left; cursor:pointer; font-size:14px; transition:all .2s; }
+  .sidebar .tab-btn:hover { color:var(--text); background:var(--card2); }
+  .sidebar .tab-btn.active { color:var(--blue); background:var(--card2); border-right:3px solid var(--blue); }
+  .sidebar .tab-icon { margin-right:8px; }
+
+  .content { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+
+  /* ── Tab 1: 策略列表 ── */
+  .strat-list { flex:1; overflow-y:auto; padding:16px; }
+  .strat-card { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:14px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; }
+  .strat-card:hover { border-color:var(--blue); }
+  .strat-card .strat-info { flex:1; }
+  .strat-card .strat-name { font-size:15px; font-weight:600; margin-bottom:4px; }
+  .strat-card .strat-meta { font-size:12px; color:var(--muted); }
+  .strat-card .strat-actions { display:flex; gap:6px; }
+
+  .btn { padding:6px 14px; border-radius:6px; font-size:13px; cursor:pointer; border:none; }
+  .btn-primary { background:var(--blue); color:#000; }
+  .btn-success { background:var(--green); color:#000; }
+  .btn-danger { background:var(--red); color:#fff; }
+  .btn-alt { background:#334155; color:var(--text); }
+
+  /* ── Tab 2: 策略编辑 ── */
+  .edit-panel { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+  .edit-header { padding:10px 16px; display:flex; justify-content:space-between; align-items:center; background:var(--card); border-bottom:1px solid var(--border); }
+  .edit-header select { background:var(--bg); color:var(--text); border:1px solid var(--border); padding:4px 10px; border-radius:6px; font-size:13px; }
+  .editor-wrap { flex:1; border-radius:0; overflow:hidden; }
+  .edit-bar { padding:10px 16px; display:flex; gap:8px; align-items:center; background:var(--card); border-top:1px solid var(--border); }
+  .edit-bar input { background:var(--bg); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:4px 8px; font-size:13px; }
+  .edit-bar label { font-size:12px; color:var(--muted); }
+  .bt-link { padding:4px 10px; background:var(--card2); border:1px solid var(--border); border-radius:6px; font-size:12px; color:var(--green); cursor:pointer; }
+
+  /* msg */
+  .msg { font-size:13px; } .msg-ok { color:var(--green); } .msg-err { color:var(--red); }
+
+  /* ── Tab 3: 策略共振 ── */
+  .resonance-panel { flex:1; overflow-y:auto; padding:16px; }
+  .resonance-panel h3 { margin-bottom:12px; color:var(--blue); }
+  .res-table { width:100%; border-collapse:collapse; font-size:13px; }
+  .res-table th,.res-table td { padding:8px 10px; text-align:left; border-bottom:1px solid var(--border); }
+  .res-table th { color:var(--muted); font-weight:600; }
+  .res-table tr:hover { background:var(--card2); }
+  .tag { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; margin:1px; }
+  .tag-buy { background:rgba(52,211,153,.2); color:var(--green); }
+  .tag-sell { background:rgba(248,113,113,.2); color:var(--red); }
+
+  .hidden { display:none !important; }
+</style>
+</head>
+<body>
+
+<!-- 顶部导航 -->
+<div class="nav">
+  <span>
+    <a href="/">🏠 首页</a> <a href="/factors">📊 因子</a>
+    <a href="/live">📈 实盘</a> <a href="/risk">🛡 风控</a>
+    <span class="nav-title">📝 策略编辑器</span>
+  </span>
+  <span id="sys_status" style="font-size:12px;color:var(--muted)"></span>
+</div>
+
+<!-- 主体 -->
+<div class="main">
+
+  <!-- 竖排 Tab -->
+  <div class="sidebar">
+    <button class="tab-btn active" onclick="showTab('list')">
+      <span class="tab-icon">📋</span> 策略列表
+    </button>
+    <button class="tab-btn" onclick="showTab('edit')">
+      <span class="tab-icon">✏️</span> 策略编辑
+    </button>
+    <button class="tab-btn" onclick="showTab('resonance')">
+      <span class="tab-icon">🔀</span> 策略共振
+    </button>
+  </div>
+
+  <!-- 内容区 -->
+  <div class="content">
+
+    <!-- ──────────── Tab 1: 策略列表 ──────────── -->
+    <div id="tab_list" class="strat-list"></div>
+
+    <!-- ──────────── Tab 2: 策略编辑 ──────────── -->
+    <div id="tab_edit" class="edit-panel hidden">
+      <div class="edit-header">
+        <span>
+          📄 <select id="file_selector" onchange="loadFile(this.value)"></select>
+          <span id="file_info" style="font-size:12px;color:var(--muted);margin-left:10px"></span>
+        </span>
+        <span>
+          <button class="btn btn-alt" onclick="newFile()" style="font-size:12px">➕ 新建</button>
+          <button class="btn btn-danger" onclick="deleteFile()" style="font-size:12px">🗑 删除</button>
+          <span id="bt_link_area" style="margin-left:8px"></span>
+        </span>
+      </div>
+      <div class="editor-wrap" id="editor_container"></div>
+      <div class="edit-bar">
+        <label>回测区间</label>
+        <input type="date" id="bt_start" value="2026-01-01">
+        <span style="color:var(--muted)">~</span>
+        <input type="date" id="bt_end" value="2026-07-17">
+        <label style="margin-left:8px">初始资金</label>
+        <input id="bt_cash" value="500000" style="width:80px">
+        <button class="btn btn-success" onclick="save()">💾 保存</button>
+        <button class="btn btn-primary" onclick="runBacktest()">▶ 跑回测</button>
+        <button class="btn btn-alt" onclick="reload()">↺ 放弃</button>
+        <span class="msg" id="msg"></span>
+      </div>
+    </div>
+
+    <!-- ──────────── Tab 3: 策略共振 ──────────── -->
+    <div id="tab_resonance" class="resonance-panel hidden">
+      <h3>🔀 多策略信号共振分析</h3>
+      <p style="color:var(--muted);font-size:13px;margin-bottom:14px">
+        同一交易日，同时被多个策略发出买入信号 → 更强的一致性确认。
+        卖出共振（多个策略同时 S1_FULL）→ 更强风险信号。
+      </p>
+      <div id="resonance_content"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
+<script>
+let current='', monaco_editor=null, savedContent='';
+let allStrategies=[];
+
+// ═══════════════════════════════════════════════════════════════
+// Tab 切换
+// ═══════════════════════════════════════════════════════════════
+function showTab(name){
+  document.querySelectorAll('.sidebar .tab-btn').forEach(b=>b.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('tab_list').classList.add('hidden');
+  document.getElementById('tab_edit').classList.add('hidden');
+  document.getElementById('tab_resonance').classList.add('hidden');
+  if(name==='list'){ document.getElementById('tab_list').classList.remove('hidden'); loadStrategyList(); }
+  else if(name==='edit'){ document.getElementById('tab_edit').classList.remove('hidden'); if(!monaco_editor) initEditor(); else loadStrategyList(); }
+  else if(name==='resonance'){ document.getElementById('tab_resonance').classList.remove('hidden'); loadResonance(); }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Tab 1: 策略列表
+// ═══════════════════════════════════════════════════════════════
+async function loadStrategyList(){
+  const container=document.getElementById('tab_list');
+  const [files, btHistory]=await Promise.all([
+    fetch('/api/strategy-editor/list').then(r=>r.json()),
+    fetch('/api/backtest/history?limit=50').then(r=>r.json()).catch(()=>({runs:[]}))
+  ]);
+  allStrategies=files.strategies||[];
+  if(!allStrategies.length){ container.innerHTML='<p style="color:var(--muted)">暂无策略文件</p>'; return; }
+
+  const btMap={};
+  (btHistory.runs||[]).forEach(r=>{
+    const sname=(r.strategy_name||'').replace('_jq','').replace('.py','');
+    if(!btMap[sname] || new Date(r.created_at) > new Date(btMap[sname].created_at)){
+      btMap[sname]=r;
+    }
+  });
+
+  container.innerHTML=allStrategies.map(s=>{
+    const sname=s.name.replace('.py','');
+    const bt=btMap[sname];
+    const btHtml=bt
+      ? `<span style="color:var(--green)">✅ ${new Date(bt.created_at).toLocaleDateString()} · ${(bt.total_return*100).toFixed(1)}%</span>
+         <a href="/backtest/${bt.run_id}" target="_blank" style="font-size:11px;margin-left:4px">查看→</a>`
+      : '<span style="color:var(--muted)">⚪ 无回测</span>';
+    return `<div class="strat-card">
+      <div class="strat-info">
+        <div class="strat-name">📄 ${s.name}</div>
+        <div class="strat-meta">${s.size} 字节 · 最近回测: ${btHtml}</div>
+      </div>
+      <div class="strat-actions">
+        <button class="btn btn-primary" onclick="openInEditor('${s.name}')">✏️ 编辑</button>
+        <button class="btn btn-success" onclick="quickBacktest('${s.name}')">▶ 跑回测</button>
+        <button class="btn btn-alt" onclick="viewBTList('${sname}')">📋 回测历史</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openInEditor(fname){
+  showTab('edit');
+  loadFile(fname);
+}
+async function quickBacktest(fname){
+  const sname=fname.replace('.py','');
+  const start=document.getElementById('bt_start').value||'2026-01-01';
+  const end=document.getElementById('bt_end').value||'2026-07-17';
+  const cash=500000;
+  const resp=await fetch('/api/backtest/run',{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({strategy_name:sname,start_date:start,end_date:end,initial_cash:cash})
+  });
+  const d=await resp.json();
+  if(d.run_id) window.open('/backtest/'+d.run_id,'_blank');
+  else alert('回测失败: '+(d.error||'未知错误'));
+}
+function viewBTList(sname){
+  // 跳转到回测列表页面并传入策略名过滤
+  window.open('/backtest?strategy='+encodeURIComponent(sname),'_blank');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Tab 2: 策略编辑（Monaco）
+// ═══════════════════════════════════════════════════════════════
+function initEditor(){
+  const loadTimer=setTimeout(()=>{
+    document.getElementById('editor_container').innerHTML='<div style="color:var(--red);padding:40px;text-align:center">编辑器加载失败，请检查网络。</div>';
+  },8000);
+  require.config({paths:{vs:'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs'}});
+  require(['vs/editor/editor.main'],function(){
+    clearTimeout(loadTimer);
+    monaco_editor=monaco.editor.create(document.getElementById('editor_container'),{
+      value:'', language:'python', theme:'vs-dark',
+      fontSize:14, minimap:{enabled:true}, automaticLayout:true,
+      scrollBeyondLastLine:false,
+    });
+    loadStrategyList();
+  });
+}
+
+async function populateFileSelector(){
+  const sel=document.getElementById('file_selector');
+  sel.innerHTML=allStrategies.map(s=>`<option value="${s.name}">${s.name}</option>`).join('');
+  if(!current && allStrategies.length) loadFile(allStrategies[0].name);
+}
+
+async function loadFile(name){
+  current=name;
+  if(!monaco_editor) return;
+  const sel=document.getElementById('file_selector'); sel.value=name;
+  const r=await fetch('/api/strategy-editor/'+name); const d=await r.json();
+  if(d.error){ alert(d.error); return; }
+  savedContent=d.content; monaco_editor.setValue(d.content);
+  document.getElementById('file_info').innerHTML=`<span>${d.content.length} 字符</span>`;
+  document.getElementById('msg').innerHTML='';
+  // 跳转到回测列表链接
+  const sname=name.replace('.py','');
+  document.getElementById('bt_link_area').innerHTML=
+    `<a href="/backtest?strategy=${encodeURIComponent(sname)}" class="bt-link" target="_blank">📋 ${sname} 回测列表 →</a>`;
+}
+
+async function save(){
+  if(!current)return;
+  const content=monaco_editor.getValue();
+  const r=await fetch('/api/strategy-editor/'+current,{method:'PUT',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({content})
+  }); const d=await r.json();
+  savedContent=editor? monaco_editor.getValue():content;
+  document.getElementById('msg').innerHTML=d.saved
+    ?`<span class="msg-ok">✅ 已保存 ${current}（备份: ${d.backup||'无'}）</span>`
+    :`<span class="msg-err">❌ ${d.error||'未知错误'}</span>`;
+  setTimeout(()=>{document.getElementById('msg').innerHTML='';},4000);
+}
+
+async function reload(){
+  if(!current)return;
+  if(monaco_editor.getValue()!==savedContent && !confirm('有未保存的修改，确定放弃？'))return;
+  const r=await fetch('/api/strategy-editor/'+current); const d=await r.json();
+  monaco_editor.setValue(d.content);
+  savedContent=d.content;
+  document.getElementById('msg').innerHTML='<span class="msg-ok">已恢复到服务器版本</span>';
+}
+
+async function runBacktest(){
+  if(!current)return;
+  const start=document.getElementById('bt_start').value;
+  const end=document.getElementById('bt_end').value;
+  const cash=parseFloat(document.getElementById('bt_cash').value)||500000;
+  const name=current.replace('.py','');
+  document.getElementById('msg').innerHTML=`<span>⏳ 正在启动回测 ${name}...</span>`;
+  const resp=await fetch('/api/backtest/run',{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({strategy_name:name,start_date:start,end_date:end,initial_cash:cash})
+  });
+  const d=await resp.json();
+  if(d.run_id){
+    document.getElementById('msg').innerHTML=`<span class="msg-ok">✅ 回测启动 →
+      <a href="/backtest/${d.run_id}" target="_blank">查看报告</a></span>`;
+  } else {
+    document.getElementById('msg').innerHTML=`<span class="msg-err">❌ ${d.error||'启动失败'}</span>`;
+  }
+}
+
+async function newFile(){
+  const name=prompt('新策略文件名（例如 my_strategy.py）:');
+  if(!name)return;
+  const r=await fetch('/api/strategy-editor/'+name,{method:'PUT',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({content:'# 新策略 - 零 import（API 由引擎注入）\n\n'})
+  });
+  const d=await r.json();
+  if(d.saved){ location.reload(); }
+  else alert(d.error||'新建失败');
+}
+
+async function deleteFile(){
+  if(!current)return;
+  if(!confirm(`确定删除 ${current}？不可恢复！`))return;
+  const r=await fetch('/api/strategy-editor/'+current,{method:'DELETE'});
+  const d=await r.json();
+  if(d.deleted) location.reload();
+  else alert(d.error||'删除失败');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Tab 3: 策略共振
+// ═══════════════════════════════════════════════════════════════
+async function loadResonance(){
+  const container=document.getElementById('resonance_content');
+  container.innerHTML='<p style="color:var(--muted)">⏳ 加载中...</p>';
+  try{
+    const r=await fetch('/api/strategy-editor/resonance');
+    const d=await r.json();
+    if(d.error){ container.innerHTML=`<p style="color:var(--red)">${d.error}</p>`; return; }
+
+    let html=`<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px">
+      <span style="color:var(--muted);font-size:13px">日期: ${d.date||'N/A'}</span>
+      <span style="color:var(--green);font-size:13px">买入共振: ${d.buy_resonance||0} 只</span>
+      <span style="color:var(--red);font-size:13px">卖出共振: ${d.sell_resonance||0} 只</span>
+    </div>`;
+
+    if(d.details && d.details.length){
+      html+='<table class="res-table"><thead><tr><th>股票</th><th>共振策略</th><th>信号类型</th><th>S1 分数</th></tr></thead><tbody>';
+      d.details.forEach(row=>{
+        const tags=row.strategies.map(s=>{
+          if(!s)return '';
+          return s.toLowerCase().includes('sell')||s.toLowerCase().includes('s1')
+            ? `<span class="tag tag-sell">${s}</span>`
+            : `<span class="tag tag-buy">${s}</span>`;
+        }).join(' ');
+        const sigColor=row.signal_type==='sell'?'var(--red)':'var(--green)';
+        html+=`<tr>
+          <td>${row.code} ${row.name||''}</td>
+          <td>${tags}</td>
+          <td style="color:${sigColor}">${row.signal_type==='sell'?'卖出':'买入'}</td>
+          <td>${row.score_s1!=null?row.score_s1.toFixed(1):'-'}</td>
+        </tr>`;
+      });
+      html+='</tbody></table>';
+    } else {
+      html+='<p style="color:var(--muted);margin-top:20px">当日无策略共振信号</p>';
+    }
+    container.innerHTML=html;
+  }catch(e){
+    container.innerHTML=`<p style="color:var(--red)">加载失败: ${e.message}</p>`;
+  }
+}
+
+// ── 初始加载 ──────────────────────────────────────────────
+loadStrategyList();
+// 系统状态
+fetch('/api/agent/health').then(r=>r.json()).then(d=>{
+  document.getElementById('sys_status').innerHTML='🟢 '+(d.status||'ok');
+}).catch(()=>{document.getElementById('sys_status').innerHTML='⚪'});
+</script>
+</body>
+</html>
