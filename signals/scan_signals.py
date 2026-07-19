@@ -132,7 +132,6 @@ def get_stock_list() -> List[Dict]:
             df = store.query("""
                 SELECT symbol AS code, name
                 FROM stock_basic
-                WHERE list_status = 'L' OR list_status IS NULL
                 ORDER BY symbol
             """)
             if len(df) > 0:
@@ -152,7 +151,21 @@ def get_stock_list() -> List[Dict]:
             ORDER BY ts_code
         """).fetchdf()
         if len(df) > 0:
-            df['name'] = df['code']
+            # Load names from PG stock_basic
+            name_map: dict[str, str] = {}
+            try:
+                import psycopg
+                from config.settings import settings
+                pg = psycopg.connect(settings.pg_dsn)
+                names = pg.execute(
+                    "SELECT ts_code, name FROM stock_basic WHERE ts_code = ANY(%s)",
+                    [df['code'].tolist()],
+                ).fetchall()
+                pg.close()
+                name_map = {r[0]: r[1] for r in names}
+            except Exception:
+                pass
+            df['name'] = df['code'].map(name_map).fillna(df['code'].str[:6])
             # strip .SH/.SZ suffix
             df['code'] = df['code'].str[:6]
             return df.to_dict('records')
@@ -535,10 +548,10 @@ def common_sell_signal(name: str, indicators: Dict, was_observing: bool = False)
     signal_止损 = False
     is_observing = False  # 当前观察状态输出
 
-    # S1分数信号
-    if score_s1 >= 5 and score_s1 < 10:
+    # S1分数信号（阈值上调：减少噪音卖出，full>=12 half>=8 替代 full>=10 half>=5）
+    if score_s1 >= 8 and score_s1 < 12:
         signal_s1_half = True
-    if score_s1 >= 10:
+    if score_s1 >= 12:
         signal_s1_full = True
 
     # 跌破多空线信号（带观察期缓冲）

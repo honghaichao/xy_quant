@@ -30,11 +30,11 @@ def calculate_s1_score(indicators: Dict) -> float:
     
     prev_close = close_arr[-2] if n >= 2 else close
     
-    # 条件1基础
+    # 条件1基础：先涨后跌，触发阈值收紧（减少噪音）
     前10日涨幅 = (close / close_arr[-10] - 1) * 100 if n >= 10 else 0
     前50日涨幅 = (close / close_arr[-50] - 1) * 100 if n >= 50 else 0
-    
-    条件1基础 = (close < open_price) and (high == np.max(high_arr[-60:])) and (前10日涨幅 > 10 or 前50日涨幅 > 50)
+
+    条件1基础 = (close < open_price) and (high == np.max(high_arr[-60:])) and (前10日涨幅 > 15 or 前50日涨幅 > 60)
     
     条件1评分 = 0
     if 条件1基础:
