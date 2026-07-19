@@ -1,0 +1,110 @@
+{
+  "db_path": "data_store/market.duckdb",
+  "tables": {
+    "adj_factor": {
+      "rows": 9,
+      "columns": [
+        "ts_code",
+        "trade_date",
+        "adj_factor",
+        "updated_at"
+      ]
+    },
+    "daily_bar": {
+      "rows": 9,
+      "columns": [
+        "ts_code",
+        "trade_date",
+        "open",
+        "high",
+        "low",
+        "close",
+        "pre_close",
+        "change",
+        "pct_chg",
+        "vol",
+        "amount",
+        "updated_at"
+      ]
+    },
+    "daily_basic": {
+      "rows": 3,
+      "columns": [
+        "ts_code",
+        "trade_date",
+        "close",
+        "turnover_rate",
+        "turnover_rate_f",
+        "volume_ratio",
+        "pe",
+        "pe_ttm",
+        "pb",
+        "ps",
+        "ps_ttm",
+        "dv_ratio",
+        "dv_ttm",
+        "total_share",
+        "float_share",
+        "free_share",
+        "total_mv",
+        "circ_mv",
+        "updated_at"
+      ]
+    },
+    "index_daily": {
+      "rows": 5,
+      "columns": [
+        "ts_code",
+        "trade_date",
+        "open",
+        "high",
+        "low",
+        "close",
+        "pre_close",
+        "change",
+        "pct_chg",
+        "vol",
+        "amount",
+        "updated_at"
+      ]
+    },
+    "limit_list": {
+      "rows": 0,
+      "columns": [
+        "trade_date",
+        "ts_code",
+        "name",
+        "close",
+        "pct_chg",
+        "amount",
+        "limit_amount",
+        "float_mv",
+        "total_mv",
+        "turnover_ratio",
+        "fd_amount",
+        "first_time",
+        "last_time",
+        "open_times",
+        "up_stat",
+        "limit_times",
+        "limit",
+        "updated_at"
+      ]
+    },
+    "minute_bar": {
+      "rows": 0,
+      "columns": [
+        "ts_code",
+        "datetime",
+        "freq",
+        "open",
+        "high",
+        "low",
+        "close",
+        "vol",
+        "amount",
+        "updated_at"
+      ]
+    }
+  }
+}

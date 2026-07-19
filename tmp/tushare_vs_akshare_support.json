@@ -1,0 +1,57 @@
+{
+  "ak_preferred_capabilities": [
+    {
+      "capability": "concept_money_flow",
+      "preferred_source_now": [
+        "akshare"
+      ],
+      "tushare_declares_support": true,
+      "akshare_declares_support": true
+    },
+    {
+      "capability": "hk_hold",
+      "preferred_source_now": [
+        "akshare"
+      ],
+      "tushare_declares_support": true,
+      "akshare_declares_support": true
+    },
+    {
+      "capability": "industry_money_flow",
+      "preferred_source_now": [
+        "akshare"
+      ],
+      "tushare_declares_support": true,
+      "akshare_declares_support": true
+    },
+    {
+      "capability": "limit_pool",
+      "preferred_source_now": [
+        "akshare"
+      ],
+      "tushare_declares_support": true,
+      "akshare_declares_support": true
+    },
+    {
+      "capability": "minute_bar",
+      "preferred_source_now": [
+        "tushare"
+      ],
+      "tushare_declares_support": true,
+      "akshare_declares_support": true
+    },
+    {
+      "capability": "stock_money_flow",
+      "preferred_source_now": [
+        "akshare"
+      ],
+      "tushare_declares_support": true,
+      "akshare_declares_support": true
+    }
+  ],
+  "ak_capability_count": 26,
+  "tushare_capability_count": 26,
+  "missing_in_tushare_vs_akshare": [],
+  "extra_in_tushare_vs_akshare": [],
+  "full_overlap": true
+}

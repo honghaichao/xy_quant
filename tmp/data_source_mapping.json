@@ -1,0 +1,225 @@
+{
+  "preferred_sources_by_capability": {},
+  "updaters": [
+    {
+      "file": "adj_factor_updater.py",
+      "class": "AdjFactorUpdater",
+      "source_capability": null,
+      "tables": [
+        "adj_factor"
+      ],
+      "fetch_calls": [],
+      "stores": [
+        "market"
+      ]
+    },
+    {
+      "file": "basic_updater.py",
+      "class": "BasicUpdater",
+      "source_capability": null,
+      "tables": [
+        "stock_basic"
+      ],
+      "fetch_calls": [],
+      "stores": [
+        "meta"
+      ]
+    },
+    {
+      "file": "calendar_updater.py",
+      "class": "CalendarUpdater",
+      "source_capability": null,
+      "tables": [
+        "trade_calendar"
+      ],
+      "fetch_calls": [],
+      "stores": [
+        "meta"
+      ]
+    },
+    {
+      "file": "daily_bar_updater.py",
+      "class": "DailyBarUpdater",
+      "source_capability": null,
+      "tables": [
+        "daily_bar"
+      ],
+      "fetch_calls": [],
+      "stores": [
+        "market"
+      ]
+    },
+    {
+      "file": "daily_basic_updater.py",
+      "class": "DailyBasicUpdater",
+      "source_capability": null,
+      "tables": [
+        "daily_basic"
+      ],
+      "fetch_calls": [],
+      "stores": [
+        "market"
+      ]
+    },
+    {
+      "file": "daily_updater.py",
+      "class": "DailyUpdater",
+      "source_capability": null,
+      "tables": [],
+      "fetch_calls": [],
+      "stores": []
+    },
+    {
+      "file": "finance_updater.py",
+      "class": "FinanceUpdater",
+      "source_capability": null,
+      "tables": [
+        "income",
+        "balancesheet",
+        "cashflow",
+        "fina_indicator",
+        "dividend"
+      ],
+      "fetch_calls": [],
+      "stores": [
+        "meta",
+        "meta",
+        "meta",
+        "meta",
+        "meta"
+      ]
+    },
+    {
+      "file": "hk_hold_updater.py",
+      "class": "HkHoldUpdater",
+      "source_capability": "hk_hold",
+      "tables": [
+        "hk_hold"
+      ],
+      "fetch_calls": [],
+      "stores": [
+        "meta"
+      ]
+    },
+    {
+      "file": "holdertrade_updater.py",
+      "class": "HoldertradeUpdater",
+      "source_capability": null,
+      "tables": [
+        "stk_holdertrade"
+      ],
+      "fetch_calls": [],
+      "stores": [
+        "meta"
+      ]
+    },
+    {
+      "file": "index_daily_updater.py",
+      "class": "IndexDailyUpdater",
+      "source_capability": null,
+      "tables": [
+        "index_daily"
+      ],
+      "fetch_calls": [],
+      "stores": [
+        "market"
+      ]
+    },
+    {
+      "file": "limit_list_updater.py",
+      "class": "LimitListUpdater",
+      "source_capability": "limit_pool",
+      "tables": [
+        "limit_list"
+      ],
+      "fetch_calls": [],
+      "stores": [
+        "market"
+      ]
+    },
+    {
+      "file": "margin_updater.py",
+      "class": "MarginUpdater",
+      "source_capability": null,
+      "tables": [
+        "margin_detail"
+      ],
+      "fetch_calls": [],
+      "stores": [
+        "meta"
+      ]
+    },
+    {
+      "file": "member_updater.py",
+      "class": "MemberUpdater",
+      "source_capability": null,
+      "tables": [
+        "concept_list",
+        "industry_list",
+        "index_weight",
+        "concept_member",
+        "industry_member"
+      ],
+      "fetch_calls": [],
+      "stores": [
+        "meta",
+        "meta",
+        "meta",
+        "meta",
+        "meta"
+      ]
+    },
+    {
+      "file": "minute_bar_updater.py",
+      "class": "MinuteBarUpdater",
+      "source_capability": "minute_bar",
+      "tables": [
+        "minute_bar"
+      ],
+      "fetch_calls": [],
+      "stores": [
+        "market"
+      ]
+    },
+    {
+      "file": "money_flow_updater.py",
+      "class": "MoneyFlowUpdater",
+      "source_capability": "concept_money_flow",
+      "tables": [
+        "concept_money_flow",
+        "industry_money_flow",
+        "stock_money_flow"
+      ],
+      "fetch_calls": [],
+      "stores": [
+        "meta",
+        "meta",
+        "meta"
+      ]
+    },
+    {
+      "file": "suspend_updater.py",
+      "class": "SuspendUpdater",
+      "source_capability": null,
+      "tables": [
+        "stock_suspend"
+      ],
+      "fetch_calls": [],
+      "stores": [
+        "meta"
+      ]
+    },
+    {
+      "file": "top_list_updater.py",
+      "class": "TopListUpdater",
+      "source_capability": null,
+      "tables": [
+        "top_list"
+      ],
+      "fetch_calls": [],
+      "stores": [
+        "meta"
+      ]
+    }
+  ]
+}

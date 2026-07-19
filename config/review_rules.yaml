@@ -1,0 +1,36 @@
+phase_thresholds:
+  spread:
+    limit_up_min: 80
+    broken_rate_max: 0.15
+  divergence:
+    limit_up_range: [60, 80]
+    broken_rate_range: [0.15, 0.25]
+  recede:
+    limit_up_max: 60
+    broken_rate_min: 0.25
+  freeze:
+    limit_up_max: 40
+    limit_down_gt_up: true
+  recovery:
+    limit_up_min: 40
+    growth_rate_min: 1.0
+
+main_line:
+  money_flow_min: 50
+  limit_count_min: 5
+  pct_chg_min: 0.02
+
+sub_line:
+  money_flow_range: [30, 50]
+  limit_count_range: [3, 5]
+
+retreat_line:
+  money_flow_max: -30
+
+failed_rotation:
+  was_strong_yesterday: true
+  pct_chg_today_max: -0.02
+
+volume_price_ratio:
+  hot_threshold: 0.05
+  cold_threshold: 0.01

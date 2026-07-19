@@ -1,0 +1,25 @@
+{
+  "count": 20,
+  "tables": [
+    "balancesheet",
+    "cashflow",
+    "concept_member",
+    "concept_money_flow",
+    "data_quality_report",
+    "data_update_log",
+    "dividend",
+    "fina_indicator",
+    "hk_hold",
+    "income",
+    "index_weight",
+    "industry_member",
+    "industry_money_flow",
+    "margin_detail",
+    "stk_holdertrade",
+    "stock_basic",
+    "stock_money_flow",
+    "stock_suspend",
+    "top_list",
+    "trade_calendar"
+  ]
+}

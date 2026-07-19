@@ -1,0 +1,7 @@
+2026-05-09 15:29:09.001 | INFO     | init_db | Initializing market storage schema.
+2026-05-09 15:29:09.022 | INFO     | duckdb_store | DuckDB market schema initialized.
+2026-05-09 15:29:09.023 | INFO     | init_db | Market storage schema initialized.
+2026-05-09 15:29:09.023 | INFO     | init_db | Initializing metadata storage schema.
+2026-05-09 15:29:09.059 | INFO     | pg_store | PostgreSQL metadata schema initialized.
+2026-05-09 15:29:09.059 | INFO     | init_db | Metadata storage schema initialized.
+2026-05-09 15:29:09.059 | INFO     | init_db | Database initialization complete.

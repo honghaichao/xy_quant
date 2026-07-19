@@ -1,0 +1,170 @@
+{
+  "start": "2020-01-01",
+  "end": "2026-05-08",
+  "trade_days": 1535,
+  "stock_basic_rows": 5515,
+  "missing_codes_after_listing": 4845,
+  "top20": [
+    {
+      "ts_code": "000001.SZ",
+      "list_date": "1991-04-03",
+      "eligible_days": 1535,
+      "missing_days": 1535,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-05-08"
+    },
+    {
+      "ts_code": "000002.SZ",
+      "list_date": "1991-01-29",
+      "eligible_days": 1535,
+      "missing_days": 1535,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-05-08"
+    },
+    {
+      "ts_code": "000004.SZ",
+      "list_date": "1990-12-01",
+      "eligible_days": 1535,
+      "missing_days": 1535,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-05-08"
+    },
+    {
+      "ts_code": "000006.SZ",
+      "list_date": "1992-04-27",
+      "eligible_days": 1535,
+      "missing_days": 1535,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-05-08"
+    },
+    {
+      "ts_code": "000007.SZ",
+      "list_date": "1992-04-13",
+      "eligible_days": 1535,
+      "missing_days": 1535,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-05-08"
+    },
+    {
+      "ts_code": "000008.SZ",
+      "list_date": "1992-05-07",
+      "eligible_days": 1535,
+      "missing_days": 1535,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-05-08"
+    },
+    {
+      "ts_code": "000009.SZ",
+      "list_date": "1991-06-25",
+      "eligible_days": 1535,
+      "missing_days": 1535,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-05-08"
+    },
+    {
+      "ts_code": "000010.SZ",
+      "list_date": "1995-10-27",
+      "eligible_days": 1535,
+      "missing_days": 1535,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-05-08"
+    },
+    {
+      "ts_code": "000011.SZ",
+      "list_date": "1992-03-30",
+      "eligible_days": 1535,
+      "missing_days": 1535,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-05-08"
+    },
+    {
+      "ts_code": "000012.SZ",
+      "list_date": "1992-02-28",
+      "eligible_days": 1535,
+      "missing_days": 1535,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-05-08"
+    },
+    {
+      "ts_code": "000014.SZ",
+      "list_date": "1992-06-02",
+      "eligible_days": 1535,
+      "missing_days": 1535,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-05-08"
+    },
+    {
+      "ts_code": "000016.SZ",
+      "list_date": "1992-03-27",
+      "eligible_days": 1535,
+      "missing_days": 1535,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-05-08"
+    },
+    {
+      "ts_code": "000017.SZ",
+      "list_date": "1992-03-31",
+      "eligible_days": 1535,
+      "missing_days": 1535,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-05-08"
+    },
+    {
+      "ts_code": "000019.SZ",
+      "list_date": "1992-10-12",
+      "eligible_days": 1535,
+      "missing_days": 1535,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-05-08"
+    },
+    {
+      "ts_code": "000020.SZ",
+      "list_date": "1992-04-28",
+      "eligible_days": 1535,
+      "missing_days": 1535,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-05-08"
+    },
+    {
+      "ts_code": "000021.SZ",
+      "list_date": "1994-02-02",
+      "eligible_days": 1535,
+      "missing_days": 1535,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-05-08"
+    },
+    {
+      "ts_code": "000025.SZ",
+      "list_date": "1993-06-21",
+      "eligible_days": 1535,
+      "missing_days": 1535,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-05-08"
+    },
+    {
+      "ts_code": "000026.SZ",
+      "list_date": "1993-06-03",
+      "eligible_days": 1535,
+      "missing_days": 1535,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-05-08"
+    },
+    {
+      "ts_code": "000027.SZ",
+      "list_date": "1993-09-03",
+      "eligible_days": 1535,
+      "missing_days": 1535,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-05-08"
+    },
+    {
+      "ts_code": "000028.SZ",
+      "list_date": "1993-08-09",
+      "eligible_days": 1535,
+      "missing_days": 1535,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-05-08"
+    }
+  ],
+  "missing_pairs_count": 6940074
+}

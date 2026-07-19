@@ -1,0 +1,11 @@
+{
+  "table_count": 6,
+  "tables": [
+    "adj_factor",
+    "daily_bar",
+    "daily_basic",
+    "index_daily",
+    "limit_list",
+    "minute_bar"
+  ]
+}

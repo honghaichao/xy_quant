@@ -1,0 +1,160 @@
+# Scheduler configuration for daily data operations.
+# All times are in Asia/Shanghai timezone.
+
+scheduler:
+  timezone: Asia/Shanghai
+  jobstore: memory
+  jobs_path: config/scheduler_jobs.yaml
+  retry_attempts: 3
+  retry_min_wait: 60
+  retry_max_wait: 300
+
+jobs:
+  # ── 20:30 每个交易日：日线 + 基本指标（Tushare 数据通常 17:30~20:00 到位）──
+  - id: daily_bar_update
+    target: backfill_day
+    trigger: cron
+    enabled: true
+    cron:
+      day_of_week: mon-fri
+      hour: 20
+      minute: 30
+
+  # ── 20:45 每个交易日：涨停板 + 资金流 (AKShare) ──
+  - id: limit_moneyflow_update
+    target: backfill_day
+    trigger: cron
+    enabled: true
+    cron:
+      day_of_week: mon-fri
+      hour: 20
+      minute: 45
+
+  # ── 21:00 每个交易日：龙虎榜 (T+1 数据, 更晚有) ──
+  - id: toplist_margin_update
+    target: backfill_day
+    trigger: cron
+    enabled: true
+    cron:
+      day_of_week: mon-fri
+      hour: 21
+      minute: 0
+
+  # ── 9:30-15:00 盘中有行情时：盘中快照+资金流 (每5分钟) ──
+  - id: intraday_snapshot
+    target: intraday
+    trigger: cron
+    enabled: false               # 手动启动: --run-now intraday_snapshot
+    cron:
+      day_of_week: mon-fri
+      hour: '9-14'
+      minute: '*/5'
+
+  # ── 22:00 每个交易日：信号扫描 ──
+  - id: signal_scan
+    target: batch_scan
+    trigger: cron
+    enabled: true
+    cron:
+      day_of_week: mon-fri
+      hour: 22
+      minute: 7
+
+  # ── 22:15 每个交易日：signal_events 填充 ──
+  - id: signal_events
+    target: signal_events
+    trigger: cron
+    enabled: true
+    cron:
+      day_of_week: mon-fri
+      hour: 22
+      minute: 17
+
+  # ── 22:30 每个交易日：因子计算 ──
+  - id: factor_compute
+    target: factor_compute
+    trigger: cron
+    enabled: true
+    cron:
+      day_of_week: mon-fri
+      hour: 22
+      minute: 30
+
+  # ── 22:35 每个交易日：因子自动挖掘 ──
+  - id: auto_factor_mine
+    target: auto_factor_mine
+    trigger: cron
+    enabled: true
+    cron:
+      day_of_week: mon-fri
+      hour: 22
+      minute: 35
+
+  # ── 22:45 每个交易日：风险检查 ──
+  - id: risk_check
+    target: risk_check
+    trigger: cron
+    enabled: true
+    cron:
+      day_of_week: mon-fri
+      hour: 22
+      minute: 45
+
+  # ── 22:50 每个交易日：飞书信号推送 ──
+  - id: feishu_notify
+    target: feishu_notify
+    trigger: cron
+    enabled: true
+    cron:
+      day_of_week: mon-fri
+      hour: 22
+      minute: 50
+
+  # ── 22:55 每个交易日：持仓更新（信号→建仓） ──
+  - id: build_positions
+    target: build_positions
+    trigger: cron
+    enabled: true
+    cron:
+      day_of_week: mon-fri
+      hour: 22
+      minute: 55
+
+  # ── 23:00 每个交易日：每日净值快照 ──
+  - id: portfolio_daily
+    target: portfolio_daily
+    trigger: cron
+    enabled: true
+    cron:
+      day_of_week: mon-fri
+      hour: 23
+      minute: 0
+
+  - id: jq_live
+    target: jq_live
+    trigger: cron
+    enabled: false
+    cron:
+      day_of_week: mon-fri
+      hour: 23
+      minute: 5
+
+  # ── 23:15 每个交易日：Agent AI 分析（对当日 Top 信号的股票） ──
+  - id: agent_analyze
+    target: agent_analyze
+    trigger: cron
+    enabled: true
+    cron:
+      day_of_week: mon-fri
+      hour: 23
+      minute: 15
+
+  # ── 周日 08:00：周度更新 (股票列表 + 日历 + 板块成分) ──
+  - id: weekly_metadata
+    target: backfill_day
+    trigger: cron
+    enabled: true
+    cron:
+      day_of_week: sun
+      hour: 8
+      minute: 7

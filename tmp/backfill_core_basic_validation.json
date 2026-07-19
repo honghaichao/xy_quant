@@ -1,0 +1,250 @@
+{
+  "checks": {
+    "stock_basic": {
+      "rows": 5513,
+      "unique_ts_code": 5513,
+      "list_date_min": "1990-12-01",
+      "list_date_max": "2026-05-07"
+    },
+    "trade_calendar": {
+      "rows": 2321,
+      "open_dates": 1535,
+      "min_date": "2020-01-02",
+      "max_date": "2026-05-08"
+    },
+    "daily_bar": {
+      "rows": 7533250,
+      "unique_ts_code": 5729,
+      "min_date": "2020-01-02 00:00:00",
+      "max_date": "2026-05-08 00:00:00",
+      "missing_trade_dates_count": 0,
+      "missing_trade_dates_sample": []
+    },
+    "adj_factor": {
+      "rows": 7669994,
+      "unique_ts_code": 5732,
+      "min_date": "2020-01-02 00:00:00",
+      "max_date": "2026-05-08 00:00:00",
+      "missing_trade_dates_count": 0,
+      "missing_trade_dates_sample": []
+    },
+    "daily_basic": {
+      "rows": 7484257,
+      "unique_ts_code": 5729,
+      "min_date": "2020-01-02 00:00:00",
+      "max_date": "2026-05-08 00:00:00",
+      "missing_trade_dates_count": 0,
+      "missing_trade_dates_sample": []
+    },
+    "daily_bar_vs_adj_factor": {
+      "aligned": true
+    },
+    "daily_bar_anomalies": {
+      "count": 9694,
+      "sample": [
+        {
+          "ts_code": "920110.BJ",
+          "trade_date": "2020-01-02 00:00:00",
+          "open": 8.88,
+          "high": 8.88,
+          "low": 8.88,
+          "close": 8.88,
+          "pre_close": 6.5,
+          "change": 2.38,
+          "pct_chg": 36.6154,
+          "vol": 10.0,
+          "amount": 8.88,
+          "updated_at": "2026-05-09 22:13:44.039899",
+          "anomaly_type": "pct_chg_outlier"
+        },
+        {
+          "ts_code": "920802.BJ",
+          "trade_date": "2020-01-02 00:00:00",
+          "open": 13.2,
+          "high": 16.01,
+          "low": 13.2,
+          "close": 16.01,
+          "pre_close": 12.9,
+          "change": 3.11,
+          "pct_chg": 24.1085,
+          "vol": 105.0,
+          "amount": 141.46,
+          "updated_at": "2026-05-09 22:13:44.039899",
+          "anomaly_type": "pct_chg_outlier"
+        },
+        {
+          "ts_code": "920370.BJ",
+          "trade_date": "2020-01-02 00:00:00",
+          "open": 8.3,
+          "high": 8.3,
+          "low": 8.3,
+          "close": 8.3,
+          "pre_close": 4.17,
+          "change": 4.13,
+          "pct_chg": 99.0408,
+          "vol": 80.0,
+          "amount": 66.4,
+          "updated_at": "2026-05-09 22:13:44.039899",
+          "anomaly_type": "pct_chg_outlier"
+        },
+        {
+          "ts_code": "920974.BJ",
+          "trade_date": "2020-01-02 00:00:00",
+          "open": 4.91,
+          "high": 5.18,
+          "low": 4.91,
+          "close": 5.18,
+          "pre_close": 4.18,
+          "change": 1.0,
+          "pct_chg": 23.9234,
+          "vol": 140.0,
+          "amount": 71.04,
+          "updated_at": "2026-05-09 22:13:44.039899",
+          "anomaly_type": "pct_chg_outlier"
+        },
+        {
+          "ts_code": "920510.BJ",
+          "trade_date": "2020-01-02 00:00:00",
+          "open": 6.8,
+          "high": 6.8,
+          "low": 6.8,
+          "close": 6.8,
+          "pre_close": 3.88,
+          "change": 2.92,
+          "pct_chg": 75.2577,
+          "vol": 20.0,
+          "amount": 13.6,
+          "updated_at": "2026-05-09 22:13:44.039899",
+          "anomaly_type": "pct_chg_outlier"
+        },
+        {
+          "ts_code": "920985.BJ",
+          "trade_date": "2020-01-03 00:00:00",
+          "open": 3.0,
+          "high": 3.0,
+          "low": 3.0,
+          "close": 3.0,
+          "pre_close": 2.49,
+          "change": 0.51,
+          "pct_chg": 20.4819,
+          "vol": 10.0,
+          "amount": 3.0,
+          "updated_at": "2026-05-09 22:13:45.035507",
+          "anomaly_type": "pct_chg_outlier"
+        },
+        {
+          "ts_code": "920174.BJ",
+          "trade_date": "2020-01-03 00:00:00",
+          "open": 4.93,
+          "high": 4.93,
+          "low": 4.93,
+          "close": 4.93,
+          "pre_close": 3.4,
+          "change": 1.53,
+          "pct_chg": 45.0,
+          "vol": 10.0,
+          "amount": 4.93,
+          "updated_at": "2026-05-09 22:13:45.035507",
+          "anomaly_type": "pct_chg_outlier"
+        },
+        {
+          "ts_code": "920418.BJ",
+          "trade_date": "2020-01-03 00:00:00",
+          "open": 11.26,
+          "high": 13.83,
+          "low": 11.06,
+          "close": 13.48,
+          "pre_close": 10.96,
+          "change": 2.52,
+          "pct_chg": 22.9927,
+          "vol": 9546.5,
+          "amount": 12570.255,
+          "updated_at": "2026-05-09 22:13:45.035507",
+          "anomaly_type": "pct_chg_outlier"
+        },
+        {
+          "ts_code": "920526.BJ",
+          "trade_date": "2020-01-03 00:00:00",
+          "open": 1.35,
+          "high": 1.35,
+          "low": 1.35,
+          "close": 1.35,
+          "pre_close": 0.75,
+          "change": 0.6,
+          "pct_chg": 80.0,
+          "vol": 40.0,
+          "amount": 5.4,
+          "updated_at": "2026-05-09 22:13:45.035507",
+          "anomaly_type": "pct_chg_outlier"
+        },
+        {
+          "ts_code": "920808.BJ",
+          "trade_date": "2020-01-06 00:00:00",
+          "open": 14.98,
+          "high": 14.98,
+          "low": 14.98,
+          "close": 14.98,
+          "pre_close": 11.0,
+          "change": 3.98,
+          "pct_chg": 36.1818,
+          "vol": 10.0,
+          "amount": 14.98,
+          "updated_at": "2026-05-09 22:13:45.973916",
+          "anomaly_type": "pct_chg_outlier"
+        }
+      ]
+    },
+    "index_daily": {
+      "rows": 9210,
+      "rows_by_code": {
+        "000001.SH": 1535,
+        "399001.SZ": 1535,
+        "399006.SZ": 1535,
+        "000300.SH": 1535,
+        "000905.SH": 1535,
+        "000852.SH": 1535
+      },
+      "missing_trade_dates_by_code": {
+        "000001.SH": 0,
+        "399001.SZ": 0,
+        "399006.SZ": 0,
+        "000300.SH": 0,
+        "000905.SH": 0,
+        "000852.SH": 0
+      },
+      "ranges_by_code": {
+        "000001.SH": {
+          "min_date": "2020-01-02 00:00:00",
+          "max_date": "2026-05-08 00:00:00",
+          "missing_trade_dates_sample": []
+        },
+        "399001.SZ": {
+          "min_date": "2020-01-02 00:00:00",
+          "max_date": "2026-05-08 00:00:00",
+          "missing_trade_dates_sample": []
+        },
+        "399006.SZ": {
+          "min_date": "2020-01-02 00:00:00",
+          "max_date": "2026-05-08 00:00:00",
+          "missing_trade_dates_sample": []
+        },
+        "000300.SH": {
+          "min_date": "2020-01-02 00:00:00",
+          "max_date": "2026-05-08 00:00:00",
+          "missing_trade_dates_sample": []
+        },
+        "000905.SH": {
+          "min_date": "2020-01-02 00:00:00",
+          "max_date": "2026-05-08 00:00:00",
+          "missing_trade_dates_sample": []
+        },
+        "000852.SH": {
+          "min_date": "2020-01-02 00:00:00",
+          "max_date": "2026-05-08 00:00:00",
+          "missing_trade_dates_sample": []
+        }
+      }
+    }
+  },
+  "errors": []
+}

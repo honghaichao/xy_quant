@@ -1,0 +1,82 @@
+2026-05-09 15:07:18.836 | INFO     | update_daily | Starting incremental update: daily.
+Traceback (most recent call last):
+  File "/Volumes/quant-ssd/projects/xy_quant/scripts/update_daily.py", line 54, in <module>
+    main()
+    ~~~~^^
+  File "/Volumes/quant-ssd/projects/xy_quant/scripts/update_daily.py", line 45, in main
+    return run_updater_job('daily', DailyUpdater, build_run_kwargs(args), logger)
+  File "/Volumes/quant-ssd/projects/xy_quant/scripts/update_helpers.py", line 54, in run_updater_job
+    counts = cast(dict[str, int], updater.run(**kwargs))
+                                  ~~~~~~~~~~~^^^^^^^^^^
+  File "/Volumes/quant-ssd/projects/xy_quant/data/updater/daily_updater.py", line 42, in run
+    self._safe_extend(counts, self._spawn(LimitListUpdater).run(trade_date, kind='U'))
+                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "/Volumes/quant-ssd/projects/xy_quant/data/updater/limit_list_updater.py", line 18, in run
+    'limit_list': self._upsert_market(
+                  ~~~~~~~~~~~~~~~~~~~^
+        'limit_list',
+        ^^^^^^^^^^^^^
+        self.source.fetch_limit_pool(trade_date, kind=kind),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Volumes/quant-ssd/projects/xy_quant/data/updater/base.py", line 84, in _upsert_market
+    return self.market_store.upsert(table, frame)
+           ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+  File "/Volumes/quant-ssd/projects/xy_quant/data/storage/duckdb_store.py", line 178, in upsert
+    self.connection.execute(
+    ~~~~~~~~~~~~~~~~~~~~~~~^
+        f"INSERT OR REPLACE INTO {validated_table} ({column_list}) "
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        f"SELECT {select_list} FROM upsert_frame"
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+_duckdb.InternalException: INTERNAL Error: Column with name "industry" does not exist
+
+Stack Trace:
+
+0        duckdb_adbc_init + 4222532
+1        duckdb_adbc_init + 4107798
+2        PyInit__duckdb + 7286132
+3        PyInit__duckdb + 14814134
+4        PyInit__duckdb + 13492059
+5        PyInit__duckdb + 13504997
+6        PyInit__duckdb + 13374155
+7        PyInit__duckdb + 14092874
+8        PyInit__duckdb + 14092120
+9        PyInit__duckdb + 14153235
+10       duckdb_adbc_init + 8881378
+11       duckdb_adbc_init + 8885537
+12       duckdb_adbc_init + 8903805
+13       duckdb_adbc_init + 8911576
+14       duckdb_adbc_init + 8901960
+15       duckdb_adbc_init + 8906081
+16       duckdb_adbc_init + 8918663
+17       duckdb_adbc_init + 8968264
+18       PyInit__duckdb + 406785
+19       PyInit__duckdb + 408551
+20       PyInit__duckdb + 556433
+21       PyInit__duckdb + 555622
+22       PyInit__duckdb + 555492
+23       _duckdb.cpython-314-darwin.so + 38264
+24       PyObject_Vectorcall + 74
+25       _PyEval_EvalFrameDefault + 11585
+26       _PyEval_Vector + 252
+27       method_vectorcall + 518
+28       _PyVectorcall_Call + 138
+29       _PyEval_EvalFrameDefault + 17571
+30       PyEval_EvalCode + 272
+31       run_mod + 152
+32       pyrun_file + 141
+33       _PyRun_SimpleFileObject + 271
+34       _PyRun_AnyFileObject + 66
+35       pymain_run_file_obj + 187
+36       pymain_run_file + 85
+37       Py_RunMain + 1310
+38       pymain_main + 294
+39       Py_BytesMain + 42
+40       start + 3056
+
+This error signals an assertion failure within DuckDB. This usually occurs due to unexpected conditions or errors in the program's logic.
+For more information, see https://duckdb.org/docs/stable/dev/internal_errors

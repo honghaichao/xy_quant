@@ -1,0 +1,50 @@
+Metadata-Version: 2.4
+Name: xy_quant
+Version: 0.1.0
+Summary: Personal quantitative trading system
+Requires-Python: <3.15,>=3.14.3
+Requires-Dist: tushare>=1.4.0
+Requires-Dist: akshare>=1.15.0
+Requires-Dist: duckdb>=1.0.0
+Requires-Dist: psycopg[binary]>=3.2.0
+Requires-Dist: redis>=5.0.0
+Requires-Dist: sqlalchemy>=2.0.0
+Requires-Dist: polars>=1.0.0
+Requires-Dist: pandas>=2.2.0
+Requires-Dist: numpy>=1.26.0
+Requires-Dist: pyarrow>=15.0.0
+Requires-Dist: pydantic>=2.6.0
+Requires-Dist: pydantic-settings>=2.2.0
+Requires-Dist: python-dotenv>=1.0.0
+Requires-Dist: pyyaml>=6.0.0
+Requires-Dist: loguru>=0.7.2
+Requires-Dist: tenacity>=8.2.3
+Requires-Dist: apscheduler>=3.10.4
+Requires-Dist: jinja2>=3.1.0
+Requires-Dist: matplotlib>=3.8.0
+Requires-Dist: pillow>=10.0.0
+Requires-Dist: playwright>=1.42.0
+Provides-Extra: factor
+Requires-Dist: scipy>=1.13.0; extra == "factor"
+Requires-Dist: scikit-learn>=1.4.0; extra == "factor"
+Requires-Dist: numba>=0.59.0; extra == "factor"
+Provides-Extra: backtest
+Requires-Dist: quantstats>=0.0.62; extra == "backtest"
+Provides-Extra: parallel
+Requires-Dist: ray[default]>=2.10.0; extra == "parallel"
+Provides-Extra: api
+Requires-Dist: fastapi>=0.110.0; extra == "api"
+Requires-Dist: uvicorn>=0.29.0; extra == "api"
+Requires-Dist: websockets>=12.0; extra == "api"
+Provides-Extra: ui
+Requires-Dist: streamlit>=1.33.0; extra == "ui"
+Requires-Dist: plotly>=5.20.0; extra == "ui"
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0.0; extra == "dev"
+Requires-Dist: pytest-cov>=5.0.0; extra == "dev"
+Requires-Dist: pytest-mock>=3.12.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.23.0; extra == "dev"
+Requires-Dist: ruff>=0.4.0; extra == "dev"
+Requires-Dist: black>=24.0.0; extra == "dev"
+Requires-Dist: mypy>=1.10.0; extra == "dev"
+Requires-Dist: pre-commit>=3.7.0; extra == "dev"

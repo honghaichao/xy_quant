@@ -1,0 +1,663 @@
+{
+  "expected_full_count": 17,
+  "expected_update_count": 16,
+  "actual_full_count": 17,
+  "actual_update_count": 18,
+  "missing_full": [],
+  "missing_update": [],
+  "extra_full": [],
+  "extra_update": [
+    "update_daily.py",
+    "update_minute_bar.py"
+  ],
+  "scripts": {
+    "full_load_calendar.py": {
+      "exists": true,
+      "functions": [
+        "parse_args",
+        "build_run_kwargs",
+        "main",
+        "run_job"
+      ],
+      "has_main": true,
+      "has_run": false,
+      "has_run_job": true,
+      "import_exit_code": 0,
+      "import_ok": true,
+      "import_stderr": "",
+      "help_exit_code": 0,
+      "help_ok": true,
+      "help_first_line": "usage: full_load_calendar.py [-h] --start-date START_DATE --end-date END_DATE",
+      "help_stderr": ""
+    },
+    "full_load_basic.py": {
+      "exists": true,
+      "functions": [
+        "parse_args",
+        "build_run_kwargs",
+        "main",
+        "run_job"
+      ],
+      "has_main": true,
+      "has_run": false,
+      "has_run_job": true,
+      "import_exit_code": 0,
+      "import_ok": true,
+      "import_stderr": "",
+      "help_exit_code": 0,
+      "help_ok": true,
+      "help_first_line": "usage: full_load_basic.py [-h]",
+      "help_stderr": ""
+    },
+    "full_load_daily_bar.py": {
+      "exists": true,
+      "functions": [
+        "parse_args",
+        "build_run_kwargs",
+        "main",
+        "run_job"
+      ],
+      "has_main": true,
+      "has_run": false,
+      "has_run_job": true,
+      "import_exit_code": 0,
+      "import_ok": true,
+      "import_stderr": "",
+      "help_exit_code": 0,
+      "help_ok": true,
+      "help_first_line": "usage: full_load_daily_bar.py [-h] --ts-codes TS_CODES --start-date START_DATE",
+      "help_stderr": ""
+    },
+    "full_load_adj_factor.py": {
+      "exists": true,
+      "functions": [
+        "parse_args",
+        "build_run_kwargs",
+        "main",
+        "run_job"
+      ],
+      "has_main": true,
+      "has_run": false,
+      "has_run_job": true,
+      "import_exit_code": 0,
+      "import_ok": true,
+      "import_stderr": "",
+      "help_exit_code": 0,
+      "help_ok": true,
+      "help_first_line": "usage: full_load_adj_factor.py [-h] --ts-codes TS_CODES",
+      "help_stderr": ""
+    },
+    "full_load_daily_basic.py": {
+      "exists": true,
+      "functions": [
+        "parse_args",
+        "build_run_kwargs",
+        "main",
+        "run_job"
+      ],
+      "has_main": true,
+      "has_run": false,
+      "has_run_job": true,
+      "import_exit_code": 0,
+      "import_ok": true,
+      "import_stderr": "",
+      "help_exit_code": 0,
+      "help_ok": true,
+      "help_first_line": "usage: full_load_daily_basic.py [-h] --ts-codes TS_CODES",
+      "help_stderr": ""
+    },
+    "full_load_index_daily.py": {
+      "exists": true,
+      "functions": [
+        "parse_args",
+        "build_run_kwargs",
+        "main",
+        "run_job"
+      ],
+      "has_main": true,
+      "has_run": false,
+      "has_run_job": true,
+      "import_exit_code": 0,
+      "import_ok": true,
+      "import_stderr": "",
+      "help_exit_code": 0,
+      "help_ok": true,
+      "help_first_line": "usage: full_load_index_daily.py [-h] --index-codes INDEX_CODES",
+      "help_stderr": ""
+    },
+    "full_load_minute_bar.py": {
+      "exists": true,
+      "functions": [
+        "parse_args",
+        "build_run_kwargs",
+        "main",
+        "run_job"
+      ],
+      "has_main": true,
+      "has_run": false,
+      "has_run_job": true,
+      "import_exit_code": 0,
+      "import_ok": true,
+      "import_stderr": "",
+      "help_exit_code": 0,
+      "help_ok": true,
+      "help_first_line": "usage: full_load_minute_bar.py [-h] --ts-code TS_CODE --start-date START_DATE",
+      "help_stderr": ""
+    },
+    "full_load_limit_list.py": {
+      "exists": true,
+      "functions": [
+        "parse_args",
+        "build_run_kwargs",
+        "main",
+        "run_job"
+      ],
+      "has_main": true,
+      "has_run": false,
+      "has_run_job": true,
+      "import_exit_code": 0,
+      "import_ok": true,
+      "import_stderr": "",
+      "help_exit_code": 0,
+      "help_ok": true,
+      "help_first_line": "usage: full_load_limit_list.py [-h] --trade-date TRADE_DATE [--kind KIND]",
+      "help_stderr": ""
+    },
+    "full_load_money_flow.py": {
+      "exists": true,
+      "functions": [
+        "parse_args",
+        "build_run_kwargs",
+        "main",
+        "run_job"
+      ],
+      "has_main": true,
+      "has_run": false,
+      "has_run_job": true,
+      "import_exit_code": 0,
+      "import_ok": true,
+      "import_stderr": "",
+      "help_exit_code": 0,
+      "help_ok": true,
+      "help_first_line": "usage: full_load_money_flow.py [-h] --trade-date TRADE_DATE",
+      "help_stderr": ""
+    },
+    "full_load_top_list.py": {
+      "exists": true,
+      "functions": [
+        "parse_args",
+        "build_run_kwargs",
+        "main",
+        "run_job"
+      ],
+      "has_main": true,
+      "has_run": false,
+      "has_run_job": true,
+      "import_exit_code": 0,
+      "import_ok": true,
+      "import_stderr": "",
+      "help_exit_code": 0,
+      "help_ok": true,
+      "help_first_line": "usage: full_load_top_list.py [-h] --trade-date TRADE_DATE",
+      "help_stderr": ""
+    },
+    "full_load_margin.py": {
+      "exists": true,
+      "functions": [
+        "parse_args",
+        "build_run_kwargs",
+        "main",
+        "run_job"
+      ],
+      "has_main": true,
+      "has_run": false,
+      "has_run_job": true,
+      "import_exit_code": 0,
+      "import_ok": true,
+      "import_stderr": "",
+      "help_exit_code": 0,
+      "help_ok": true,
+      "help_first_line": "usage: full_load_margin.py [-h] --trade-date TRADE_DATE",
+      "help_stderr": ""
+    },
+    "full_load_hk_hold.py": {
+      "exists": true,
+      "functions": [
+        "parse_args",
+        "build_run_kwargs",
+        "main",
+        "run_job"
+      ],
+      "has_main": true,
+      "has_run": false,
+      "has_run_job": true,
+      "import_exit_code": 0,
+      "import_ok": true,
+      "import_stderr": "",
+      "help_exit_code": 0,
+      "help_ok": true,
+      "help_first_line": "usage: full_load_hk_hold.py [-h] [--trade-date TRADE_DATE] [--ts-code TS_CODE]",
+      "help_stderr": ""
+    },
+    "full_load_suspend.py": {
+      "exists": true,
+      "functions": [
+        "parse_args",
+        "build_run_kwargs",
+        "main",
+        "run_job"
+      ],
+      "has_main": true,
+      "has_run": false,
+      "has_run_job": true,
+      "import_exit_code": 0,
+      "import_ok": true,
+      "import_stderr": "",
+      "help_exit_code": 0,
+      "help_ok": true,
+      "help_first_line": "usage: full_load_suspend.py [-h] [--trade-date TRADE_DATE] [--ts-code TS_CODE]",
+      "help_stderr": ""
+    },
+    "full_load_finance.py": {
+      "exists": true,
+      "functions": [
+        "parse_args",
+        "build_run_kwargs",
+        "main",
+        "run_job"
+      ],
+      "has_main": true,
+      "has_run": false,
+      "has_run_job": true,
+      "import_exit_code": 0,
+      "import_ok": true,
+      "import_stderr": "",
+      "help_exit_code": 0,
+      "help_ok": true,
+      "help_first_line": "usage: full_load_finance.py [-h] --ts-codes TS_CODES --start-date START_DATE",
+      "help_stderr": ""
+    },
+    "full_load_member.py": {
+      "exists": true,
+      "functions": [
+        "parse_args",
+        "build_run_kwargs",
+        "main",
+        "run_job"
+      ],
+      "has_main": true,
+      "has_run": false,
+      "has_run_job": true,
+      "import_exit_code": 0,
+      "import_ok": true,
+      "import_stderr": "",
+      "help_exit_code": 0,
+      "help_ok": true,
+      "help_first_line": "usage: full_load_member.py [-h] [--concept-codes CONCEPT_CODES]",
+      "help_stderr": ""
+    },
+    "full_load_holdertrade.py": {
+      "exists": true,
+      "functions": [
+        "parse_args",
+        "build_run_kwargs",
+        "main",
+        "run_job"
+      ],
+      "has_main": true,
+      "has_run": false,
+      "has_run_job": true,
+      "import_exit_code": 0,
+      "import_ok": true,
+      "import_stderr": "",
+      "help_exit_code": 0,
+      "help_ok": true,
+      "help_first_line": "usage: full_load_holdertrade.py [-h] [--ts-code TS_CODE] [--ann-date ANN_DATE]",
+      "help_stderr": ""
+    },
+    "full_load_all.py": {
+      "exists": true,
+      "functions": [
+        "parse_args",
+        "run_subjob",
+        "_run_from_args",
+        "main",
+        "run_job"
+      ],
+      "has_main": true,
+      "has_run": false,
+      "has_run_job": true,
+      "import_exit_code": 0,
+      "import_ok": true,
+      "import_stderr": "",
+      "help_exit_code": 0,
+      "help_ok": true,
+      "help_first_line": "usage: full_load_all.py [-h] --start-date START_DATE --end-date END_DATE",
+      "help_stderr": ""
+    },
+    "update_calendar.py": {
+      "exists": true,
+      "functions": [
+        "parse_args",
+        "build_run_kwargs",
+        "main",
+        "run_job"
+      ],
+      "has_main": true,
+      "has_run": false,
+      "has_run_job": true,
+      "import_exit_code": 0,
+      "import_ok": true,
+      "import_stderr": "",
+      "help_exit_code": 0,
+      "help_ok": true,
+      "help_first_line": "usage: update_calendar.py [-h] --start-date START_DATE --end-date END_DATE",
+      "help_stderr": ""
+    },
+    "update_basic.py": {
+      "exists": true,
+      "functions": [
+        "parse_args",
+        "build_run_kwargs",
+        "main",
+        "run_job"
+      ],
+      "has_main": true,
+      "has_run": false,
+      "has_run_job": true,
+      "import_exit_code": 0,
+      "import_ok": true,
+      "import_stderr": "",
+      "help_exit_code": 0,
+      "help_ok": true,
+      "help_first_line": "usage: update_basic.py [-h]",
+      "help_stderr": ""
+    },
+    "update_daily_bar.py": {
+      "exists": true,
+      "functions": [
+        "parse_args",
+        "_validate_precise_backfill_args",
+        "build_run_kwargs",
+        "main",
+        "run_job"
+      ],
+      "has_main": true,
+      "has_run": false,
+      "has_run_job": true,
+      "import_exit_code": 0,
+      "import_ok": true,
+      "import_stderr": "",
+      "help_exit_code": 0,
+      "help_ok": true,
+      "help_first_line": "usage: update_daily_bar.py [-h] [--ts-codes TS_CODES]",
+      "help_stderr": ""
+    },
+    "update_adj_factor.py": {
+      "exists": true,
+      "functions": [
+        "parse_args",
+        "build_run_kwargs",
+        "main",
+        "run_job"
+      ],
+      "has_main": true,
+      "has_run": false,
+      "has_run_job": true,
+      "import_exit_code": 0,
+      "import_ok": true,
+      "import_stderr": "",
+      "help_exit_code": 0,
+      "help_ok": true,
+      "help_first_line": "usage: update_adj_factor.py [-h] --ts-codes TS_CODES --start-date START_DATE",
+      "help_stderr": ""
+    },
+    "update_daily_basic.py": {
+      "exists": true,
+      "functions": [
+        "parse_args",
+        "build_run_kwargs",
+        "main",
+        "run_job"
+      ],
+      "has_main": true,
+      "has_run": false,
+      "has_run_job": true,
+      "import_exit_code": 0,
+      "import_ok": true,
+      "import_stderr": "",
+      "help_exit_code": 0,
+      "help_ok": true,
+      "help_first_line": "usage: update_daily_basic.py [-h] --ts-codes TS_CODES",
+      "help_stderr": ""
+    },
+    "update_index_daily.py": {
+      "exists": true,
+      "functions": [
+        "parse_args",
+        "build_run_kwargs",
+        "main",
+        "run_job"
+      ],
+      "has_main": true,
+      "has_run": false,
+      "has_run_job": true,
+      "import_exit_code": 0,
+      "import_ok": true,
+      "import_stderr": "",
+      "help_exit_code": 0,
+      "help_ok": true,
+      "help_first_line": "usage: update_index_daily.py [-h] --index-codes INDEX_CODES",
+      "help_stderr": ""
+    },
+    "update_limit_list.py": {
+      "exists": true,
+      "functions": [
+        "parse_args",
+        "build_run_kwargs",
+        "main",
+        "run_job"
+      ],
+      "has_main": true,
+      "has_run": false,
+      "has_run_job": true,
+      "import_exit_code": 0,
+      "import_ok": true,
+      "import_stderr": "",
+      "help_exit_code": 0,
+      "help_ok": true,
+      "help_first_line": "usage: update_limit_list.py [-h] --trade-date TRADE_DATE [--kind KIND]",
+      "help_stderr": ""
+    },
+    "update_money_flow.py": {
+      "exists": true,
+      "functions": [
+        "parse_args",
+        "build_run_kwargs",
+        "main",
+        "run_job"
+      ],
+      "has_main": true,
+      "has_run": false,
+      "has_run_job": true,
+      "import_exit_code": 0,
+      "import_ok": true,
+      "import_stderr": "",
+      "help_exit_code": 0,
+      "help_ok": true,
+      "help_first_line": "usage: update_money_flow.py [-h] --trade-date TRADE_DATE",
+      "help_stderr": ""
+    },
+    "update_top_list.py": {
+      "exists": true,
+      "functions": [
+        "parse_args",
+        "build_run_kwargs",
+        "main",
+        "run_job"
+      ],
+      "has_main": true,
+      "has_run": false,
+      "has_run_job": true,
+      "import_exit_code": 0,
+      "import_ok": true,
+      "import_stderr": "",
+      "help_exit_code": 0,
+      "help_ok": true,
+      "help_first_line": "usage: update_top_list.py [-h] --trade-date TRADE_DATE",
+      "help_stderr": ""
+    },
+    "update_margin.py": {
+      "exists": true,
+      "functions": [
+        "parse_args",
+        "build_run_kwargs",
+        "main",
+        "run_job"
+      ],
+      "has_main": true,
+      "has_run": false,
+      "has_run_job": true,
+      "import_exit_code": 0,
+      "import_ok": true,
+      "import_stderr": "",
+      "help_exit_code": 0,
+      "help_ok": true,
+      "help_first_line": "usage: update_margin.py [-h] --trade-date TRADE_DATE",
+      "help_stderr": ""
+    },
+    "update_hk_hold.py": {
+      "exists": true,
+      "functions": [
+        "parse_args",
+        "build_run_kwargs",
+        "main",
+        "run_job"
+      ],
+      "has_main": true,
+      "has_run": false,
+      "has_run_job": true,
+      "import_exit_code": 0,
+      "import_ok": true,
+      "import_stderr": "",
+      "help_exit_code": 0,
+      "help_ok": true,
+      "help_first_line": "usage: update_hk_hold.py [-h] --trade-date TRADE_DATE",
+      "help_stderr": ""
+    },
+    "update_suspend.py": {
+      "exists": true,
+      "functions": [
+        "parse_args",
+        "build_run_kwargs",
+        "main",
+        "run_job"
+      ],
+      "has_main": true,
+      "has_run": false,
+      "has_run_job": true,
+      "import_exit_code": 0,
+      "import_ok": true,
+      "import_stderr": "",
+      "help_exit_code": 0,
+      "help_ok": true,
+      "help_first_line": "usage: update_suspend.py [-h] [--trade-date TRADE_DATE] [--ts-code TS_CODE]",
+      "help_stderr": ""
+    },
+    "update_finance.py": {
+      "exists": true,
+      "functions": [
+        "parse_args",
+        "build_run_kwargs",
+        "main",
+        "run_job"
+      ],
+      "has_main": true,
+      "has_run": false,
+      "has_run_job": true,
+      "import_exit_code": 0,
+      "import_ok": true,
+      "import_stderr": "",
+      "help_exit_code": 0,
+      "help_ok": true,
+      "help_first_line": "usage: update_finance.py [-h] --ts-codes TS_CODES --start-date START_DATE",
+      "help_stderr": ""
+    },
+    "update_member.py": {
+      "exists": true,
+      "functions": [
+        "parse_args",
+        "build_run_kwargs",
+        "main",
+        "run_job"
+      ],
+      "has_main": true,
+      "has_run": false,
+      "has_run_job": true,
+      "import_exit_code": 0,
+      "import_ok": true,
+      "import_stderr": "",
+      "help_exit_code": 0,
+      "help_ok": true,
+      "help_first_line": "usage: update_member.py [-h] [--concept-codes CONCEPT_CODES]",
+      "help_stderr": ""
+    },
+    "update_holdertrade.py": {
+      "exists": true,
+      "functions": [
+        "parse_args",
+        "build_run_kwargs",
+        "main",
+        "run_job"
+      ],
+      "has_main": true,
+      "has_run": false,
+      "has_run_job": true,
+      "import_exit_code": 0,
+      "import_ok": true,
+      "import_stderr": "",
+      "help_exit_code": 0,
+      "help_ok": true,
+      "help_first_line": "usage: update_holdertrade.py [-h] [--ts-code TS_CODE] --ann-date ANN_DATE",
+      "help_stderr": ""
+    },
+    "update_all.py": {
+      "exists": true,
+      "functions": [
+        "parse_args",
+        "run_subjob",
+        "_run_from_args",
+        "main",
+        "run_job"
+      ],
+      "has_main": true,
+      "has_run": false,
+      "has_run_job": true,
+      "import_exit_code": 0,
+      "import_ok": true,
+      "import_stderr": "",
+      "help_exit_code": 0,
+      "help_ok": true,
+      "help_first_line": "usage: update_all.py [-h] --trade-date TRADE_DATE --start-date START_DATE",
+      "help_stderr": ""
+    },
+    "run_scheduler.py": {
+      "exists": true,
+      "functions": [
+        "parse_args",
+        "wait_for_shutdown",
+        "main"
+      ],
+      "has_main": true,
+      "has_run": false,
+      "has_run_job": false,
+      "import_exit_code": 0,
+      "import_ok": true,
+      "import_stderr": "",
+      "help_exit_code": 0,
+      "help_ok": true,
+      "help_first_line": "usage: run_scheduler.py [-h] [--settings-path SETTINGS_PATH]",
+      "help_stderr": ""
+    }
+  }
+}

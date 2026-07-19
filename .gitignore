@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+data_store/
+logs/
+reports/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+*.duckdb
+*.duckdb.wal
+.idea/
+.vscode/

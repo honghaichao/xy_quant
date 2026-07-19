@@ -1,0 +1,10 @@
+{
+  "stock_zt_pool_em": {
+    "rows": 0,
+    "columns": [],
+    "head": []
+  },
+  "stock_zt_pool_dtgc_em": {
+    "error": "ValueError('跌停股池只能获取最近 30 个交易日的数据')"
+  }
+}

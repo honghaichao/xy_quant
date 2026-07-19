@@ -1,0 +1,115 @@
+{
+  "settings": {
+    "duckdb_path": "./data_store/market.duckdb",
+    "primary_data_source": "tushare",
+    "fallback_data_source": "akshare",
+    "pg_dsn": "postgresql://quant:quant@127.0.0.1:55432/quant"
+  },
+  "market": {
+    "daily_bar": {
+      "cnt": 10,
+      "min_date": "2024-01-02 00:00:00",
+      "max_date": "2026-05-08 00:00:00"
+    },
+    "adj_factor": {
+      "cnt": 10,
+      "min_date": "2024-01-02 00:00:00",
+      "max_date": "2026-05-08 00:00:00"
+    },
+    "daily_basic": {
+      "cnt": 4,
+      "min_date": "2024-01-04 00:00:00",
+      "max_date": "2026-05-08 00:00:00"
+    },
+    "index_daily": {
+      "cnt": 6,
+      "min_date": "2024-01-02 00:00:00",
+      "max_date": "2026-05-08 00:00:00"
+    },
+    "limit_list": {
+      "cnt": 0,
+      "min_date": null,
+      "max_date": null
+    },
+    "minute_bar": {
+      "cnt": 2744,
+      "min_date": "2024-01-02 09:30:00",
+      "max_date": "2024-03-29 15:00:00"
+    }
+  },
+  "meta": {
+    "stock_basic": {
+      "cnt": 5513
+    },
+    "trade_calendar": {
+      "cnt": 34,
+      "min_date": "2024-01-02",
+      "max_date": "2026-05-08"
+    },
+    "stock_suspend": {
+      "cnt": 26,
+      "min_date": "2024-01-05",
+      "max_date": "2024-02-29"
+    },
+    "income": {
+      "cnt": 0,
+      "min_date": null,
+      "max_date": null
+    },
+    "balancesheet": {
+      "cnt": 0,
+      "min_date": null,
+      "max_date": null
+    },
+    "cashflow": {
+      "cnt": 0,
+      "min_date": null,
+      "max_date": null
+    },
+    "fina_indicator": {
+      "cnt": 0,
+      "min_date": null,
+      "max_date": null
+    },
+    "dividend": {
+      "cnt": 51,
+      "min_date": "1990-12-31",
+      "max_date": "2025-12-31"
+    },
+    "top_list": {
+      "cnt": 127,
+      "min_date": "2024-01-05",
+      "max_date": "2024-02-29"
+    },
+    "margin_detail": {
+      "cnt": 7701,
+      "min_date": "2024-01-05",
+      "max_date": "2024-02-29"
+    },
+    "stk_holdertrade": {
+      "cnt": 18,
+      "min_date": "2024-01-05",
+      "max_date": "2024-01-05"
+    },
+    "hk_hold": {
+      "cnt": 2767,
+      "min_date": "2024-08-16",
+      "max_date": "2024-08-16"
+    },
+    "concept_member": {
+      "cnt": 0,
+      "min_date": null,
+      "max_date": null
+    },
+    "industry_member": {
+      "cnt": 0,
+      "min_date": null,
+      "max_date": null
+    },
+    "index_weight": {
+      "cnt": 0,
+      "min_date": null,
+      "max_date": null
+    }
+  }
+}

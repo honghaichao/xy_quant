@@ -1,0 +1,33 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: quant_postgres
+    environment:
+      POSTGRES_USER: quant
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-quant}
+      POSTGRES_DB: quant
+    ports:
+      - "${PG_PORT:-55432}:5432"
+    volumes:
+      - ../docker_data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U quant"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: quant_redis
+    ports:
+      - "${REDIS_PORT:-56379}:6379"
+    volumes:
+      - ../docker_data/redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+

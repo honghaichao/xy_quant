@@ -1,0 +1,54 @@
+{
+  "started_at": "2026-05-09T22:13:38.333050",
+  "start_date": "2020-01-01",
+  "end_date": "2026-05-09",
+  "index_codes": [
+    "000001.SH",
+    "399001.SZ",
+    "399006.SZ",
+    "000300.SH",
+    "000905.SH",
+    "000852.SH"
+  ],
+  "steps": {
+    "stock_basic": {
+      "fetched_rows": 5513,
+      "loaded_rows": 5513
+    },
+    "trade_calendar": {
+      "fetched_rows": 2321,
+      "loaded_rows": 2321,
+      "open_dates": 1535,
+      "min_date": "2020-01-02",
+      "max_date": "2026-05-08"
+    },
+    "daily_bar": {
+      "fetched_rows": 7533250,
+      "loaded_rows": 7533250
+    },
+    "adj_factor": {
+      "fetched_rows": 7669994,
+      "loaded_rows": 7669994
+    },
+    "daily_basic": {
+      "fetched_rows": 7484257,
+      "loaded_rows": 7484257
+    },
+    "index_daily": {
+      "loaded_rows_by_code": {
+        "000001.SH": 1535,
+        "399001.SZ": 1535,
+        "399006.SZ": 1535,
+        "000300.SH": 1535,
+        "000905.SH": 1535,
+        "000852.SH": 1535
+      }
+    }
+  },
+  "progress": {
+    "completed_trade_dates": 1535,
+    "total_trade_dates": 1535
+  },
+  "errors": [],
+  "finished_at": "2026-05-09T22:39:32.613254"
+}

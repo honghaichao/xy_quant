@@ -1,0 +1,257 @@
+{
+  "trade_date": "2026-05-08",
+  "index_codes": [
+    "000001.SH",
+    "399001.SZ",
+    "399006.SZ",
+    "000300.SH",
+    "000905.SH",
+    "000852.SH"
+  ],
+  "counts": {
+    "concept_list": 879,
+    "industry_list": 511,
+    "concept_member": 33344,
+    "industry_member": 23024,
+    "index_weight": 0
+  },
+  "errors": [
+    {
+      "table": "concept_member",
+      "code": "TS200",
+      "error": "抱歉，您访问接口(concept_detail)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "concept_member",
+      "code": "TS201",
+      "error": "抱歉，您访问接口(concept_detail)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "concept_member",
+      "code": "TS202",
+      "error": "抱歉，您访问接口(concept_detail)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "concept_member",
+      "code": "TS203",
+      "error": "抱歉，您访问接口(concept_detail)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "concept_member",
+      "code": "TS204",
+      "error": "抱歉，您访问接口(concept_detail)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "concept_member",
+      "code": "TS205",
+      "error": "抱歉，您访问接口(concept_detail)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "concept_member",
+      "code": "TS206",
+      "error": "抱歉，您访问接口(concept_detail)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "concept_member",
+      "code": "TS207",
+      "error": "抱歉，您访问接口(concept_detail)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "concept_member",
+      "code": "TS208",
+      "error": "抱歉，您访问接口(concept_detail)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "concept_member",
+      "code": "TS409",
+      "error": "抱歉，您访问接口(concept_detail)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "concept_member",
+      "code": "TS410",
+      "error": "抱歉，您访问接口(concept_detail)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "concept_member",
+      "code": "TS411",
+      "error": "抱歉，您访问接口(concept_detail)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "concept_member",
+      "code": "TS412",
+      "error": "抱歉，您访问接口(concept_detail)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "concept_member",
+      "code": "TS413",
+      "error": "抱歉，您访问接口(concept_detail)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "concept_member",
+      "code": "TS414",
+      "error": "抱歉，您访问接口(concept_detail)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "concept_member",
+      "code": "TS415",
+      "error": "抱歉，您访问接口(concept_detail)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "concept_member",
+      "code": "TS416",
+      "error": "抱歉，您访问接口(concept_detail)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "concept_member",
+      "code": "TS417",
+      "error": "抱歉，您访问接口(concept_detail)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "concept_member",
+      "code": "TS418",
+      "error": "抱歉，您访问接口(concept_detail)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "concept_member",
+      "code": "TS619",
+      "error": "抱歉，您访问接口(concept_detail)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "concept_member",
+      "code": "TS620",
+      "error": "抱歉，您访问接口(concept_detail)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "concept_member",
+      "code": "TS621",
+      "error": "抱歉，您访问接口(concept_detail)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "concept_member",
+      "code": "TS622",
+      "error": "抱歉，您访问接口(concept_detail)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "concept_member",
+      "code": "TS623",
+      "error": "抱歉，您访问接口(concept_detail)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "concept_member",
+      "code": "TS624",
+      "error": "抱歉，您访问接口(concept_detail)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "concept_member",
+      "code": "TS625",
+      "error": "抱歉，您访问接口(concept_detail)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "concept_member",
+      "code": "TS626",
+      "error": "抱歉，您访问接口(concept_detail)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "concept_member",
+      "code": "TS627",
+      "error": "抱歉，您访问接口(concept_detail)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "concept_member",
+      "code": "TS829",
+      "error": "抱歉，您访问接口(concept_detail)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "concept_member",
+      "code": "TS830",
+      "error": "抱歉，您访问接口(concept_detail)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "concept_member",
+      "code": "TS831",
+      "error": "抱歉，您访问接口(concept_detail)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "concept_member",
+      "code": "TS832",
+      "error": "抱歉，您访问接口(concept_detail)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "concept_member",
+      "code": "TS833",
+      "error": "抱歉，您访问接口(concept_detail)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "concept_member",
+      "code": "TS834",
+      "error": "抱歉，您访问接口(concept_detail)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "concept_member",
+      "code": "TS835",
+      "error": "抱歉，您访问接口(concept_detail)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "concept_member",
+      "code": "TS836",
+      "error": "抱歉，您访问接口(concept_detail)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "concept_member",
+      "code": "TS837",
+      "error": "抱歉，您访问接口(concept_detail)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "industry_member",
+      "code": "850344.SI",
+      "error": "抱歉，您访问接口(index_member)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "industry_member",
+      "code": "850345.SI",
+      "error": "抱歉，您访问接口(index_member)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "industry_member",
+      "code": "850346.SI",
+      "error": "抱歉，您访问接口(index_member)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "industry_member",
+      "code": "850351.SI",
+      "error": "抱歉，您访问接口(index_member)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "industry_member",
+      "code": "850353.SI",
+      "error": "抱歉，您访问接口(index_member)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "industry_member",
+      "code": "850354.SI",
+      "error": "抱歉，您访问接口(index_member)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "industry_member",
+      "code": "850614.SI",
+      "error": "抱歉，您访问接口(index_member)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "industry_member",
+      "code": "850617.SI",
+      "error": "抱歉，您访问接口(index_member)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "industry_member",
+      "code": "850618.SI",
+      "error": "抱歉，您访问接口(index_member)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    },
+    {
+      "table": "industry_member",
+      "code": "850623.SI",
+      "error": "抱歉，您访问接口(index_member)频率超限(200次/分钟)，具体频次详情：https://tushare.pro/document/1?doc_id=108。"
+    }
+  ],
+  "concept_codes": 879,
+  "industry_codes": 511
+}

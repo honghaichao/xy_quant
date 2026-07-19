@@ -1,0 +1,7 @@
+scheduler:
+  timezone: Asia/Shanghai
+  jobstore: memory
+  jobs_path: config/scheduler_jobs.yaml
+  retry_attempts: 3
+  retry_min_wait: 1
+  retry_max_wait: 8

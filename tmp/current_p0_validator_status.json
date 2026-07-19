@@ -1,0 +1,16 @@
+{
+  "results": [
+    {
+      "check": "daily_bar_required_columns",
+      "status": "pass"
+    },
+    {
+      "check": "daily_bar_unique_keys",
+      "status": "pass"
+    },
+    {
+      "check": "daily_bar_adj_factor_alignment",
+      "status": "pass"
+    }
+  ]
+}

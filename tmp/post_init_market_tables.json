@@ -1,0 +1,19 @@
+{
+  "count": 6,
+  "tables": [
+    "adj_factor",
+    "daily_bar",
+    "daily_basic",
+    "index_daily",
+    "limit_list",
+    "minute_bar"
+  ],
+  "row_counts": {
+    "adj_factor": 9,
+    "daily_bar": 9,
+    "daily_basic": 3,
+    "index_daily": 5,
+    "limit_list": 0,
+    "minute_bar": 0
+  }
+}

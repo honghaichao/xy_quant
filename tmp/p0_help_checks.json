@@ -1,0 +1,17 @@
+{
+  "full_load_all_help": {
+    "exit_code": 0,
+    "stdout_head": "usage: full_load_all.py [-h] --start-date START_DATE --end-date END_DATE\n                        --trade-date TRADE_DATE --ts-codes TS_CODES\n                        --minute-ts-code MINUTE_TS_CODE\n                        [--index-codes INDEX_CODES]\n                        [--concept-codes CONCEPT_CODES]\n                        [--industry-codes INDUSTRY_CODES]\n                        [--holdertrade-ts-code HOLDERTRADE_TS_CODE]\n                        [--holdertrade-ann-date HOLDERTRADE_ANN_DATE]",
+    "stderr_head": ""
+  },
+  "update_all_help": {
+    "exit_code": 0,
+    "stdout_head": "usage: update_all.py [-h] --trade-date TRADE_DATE --start-date START_DATE\n                     --end-date END_DATE --ts-codes TS_CODES\n                     [--index-codes INDEX_CODES]\n                     [--concept-codes CONCEPT_CODES]\n                     [--industry-codes INDUSTRY_CODES]\n\nRun all P0.9 incremental update jobs.\n\noptions:\n  -h, --help            show this help message and exit\n  --trade-date, --date TRADE_DATE\n  --start-date, --start START_DATE\n  --end-date, --end END_DATE\n  --t",
+    "stderr_head": ""
+  },
+  "run_scheduler_help": {
+    "exit_code": 0,
+    "stdout_head": "usage: run_scheduler.py [-h] [--settings-path SETTINGS_PATH]\n\nRun the P0.10 scheduler service.\n\noptions:\n  -h, --help            show this help message and exit\n  --settings-path SETTINGS_PATH\n",
+    "stderr_head": ""
+  }
+}

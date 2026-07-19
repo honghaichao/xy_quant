@@ -1,0 +1,561 @@
+{
+  "start": "2020-01-01",
+  "end": "2026-05-08",
+  "trade_days_count": 1535,
+  "codes_count": 4845,
+  "missing_codes_count": 4840,
+  "top_missing_codes": [
+    {
+      "ts_code": "920010.BJ",
+      "cov_days": 67,
+      "missing_days": 1468
+    },
+    {
+      "ts_code": "603402.SH",
+      "cov_days": 76,
+      "missing_days": 1459
+    },
+    {
+      "ts_code": "603418.SH",
+      "cov_days": 141,
+      "missing_days": 1394
+    },
+    {
+      "ts_code": "920174.BJ",
+      "cov_days": 150,
+      "missing_days": 1385
+    },
+    {
+      "ts_code": "688729.SH",
+      "cov_days": 194,
+      "missing_days": 1341
+    },
+    {
+      "ts_code": "688775.SH",
+      "cov_days": 213,
+      "missing_days": 1322
+    },
+    {
+      "ts_code": "920305.BJ",
+      "cov_days": 219,
+      "missing_days": 1316
+    },
+    {
+      "ts_code": "001400.SZ",
+      "cov_days": 242,
+      "missing_days": 1293
+    },
+    {
+      "ts_code": "301665.SZ",
+      "cov_days": 251,
+      "missing_days": 1284
+    },
+    {
+      "ts_code": "302132.SZ",
+      "cov_days": 288,
+      "missing_days": 1247
+    },
+    {
+      "ts_code": "920682.BJ",
+      "cov_days": 330,
+      "missing_days": 1205
+    },
+    {
+      "ts_code": "920077.BJ",
+      "cov_days": 367,
+      "missing_days": 1168
+    },
+    {
+      "ts_code": "301551.SZ",
+      "cov_days": 375,
+      "missing_days": 1160
+    },
+    {
+      "ts_code": "920819.BJ",
+      "cov_days": 450,
+      "missing_days": 1085
+    },
+    {
+      "ts_code": "301587.SZ",
+      "cov_days": 489,
+      "missing_days": 1046
+    },
+    {
+      "ts_code": "301591.SZ",
+      "cov_days": 515,
+      "missing_days": 1020
+    },
+    {
+      "ts_code": "688584.SH",
+      "cov_days": 522,
+      "missing_days": 1013
+    },
+    {
+      "ts_code": "920370.BJ",
+      "cov_days": 531,
+      "missing_days": 1004
+    },
+    {
+      "ts_code": "301567.SZ",
+      "cov_days": 538,
+      "missing_days": 997
+    },
+    {
+      "ts_code": "603325.SH",
+      "cov_days": 542,
+      "missing_days": 993
+    },
+    {
+      "ts_code": "301566.SZ",
+      "cov_days": 549,
+      "missing_days": 986
+    },
+    {
+      "ts_code": "301526.SZ",
+      "cov_days": 552,
+      "missing_days": 983
+    },
+    {
+      "ts_code": "301413.SZ",
+      "cov_days": 557,
+      "missing_days": 978
+    },
+    {
+      "ts_code": "301516.SZ",
+      "cov_days": 563,
+      "missing_days": 972
+    },
+    {
+      "ts_code": "603107.SH",
+      "cov_days": 590,
+      "missing_days": 945
+    },
+    {
+      "ts_code": "301555.SZ",
+      "cov_days": 591,
+      "missing_days": 944
+    },
+    {
+      "ts_code": "301489.SZ",
+      "cov_days": 596,
+      "missing_days": 939
+    },
+    {
+      "ts_code": "301558.SZ",
+      "cov_days": 607,
+      "missing_days": 928
+    },
+    {
+      "ts_code": "301500.SZ",
+      "cov_days": 612,
+      "missing_days": 923
+    },
+    {
+      "ts_code": "688716.SH",
+      "cov_days": 613,
+      "missing_days": 922
+    },
+    {
+      "ts_code": "301469.SZ",
+      "cov_days": 633,
+      "missing_days": 902
+    },
+    {
+      "ts_code": "301418.SZ",
+      "cov_days": 634,
+      "missing_days": 901
+    },
+    {
+      "ts_code": "301372.SZ",
+      "cov_days": 640,
+      "missing_days": 895
+    },
+    {
+      "ts_code": "300904.SZ",
+      "cov_days": 642,
+      "missing_days": 893
+    },
+    {
+      "ts_code": "301362.SZ",
+      "cov_days": 645,
+      "missing_days": 890
+    },
+    {
+      "ts_code": "301371.SZ",
+      "cov_days": 648,
+      "missing_days": 887
+    },
+    {
+      "ts_code": "301519.SZ",
+      "cov_days": 651,
+      "missing_days": 884
+    },
+    {
+      "ts_code": "301172.SZ",
+      "cov_days": 652,
+      "missing_days": 883
+    },
+    {
+      "ts_code": "301468.SZ",
+      "cov_days": 654,
+      "missing_days": 881
+    },
+    {
+      "ts_code": "688602.SH",
+      "cov_days": 656,
+      "missing_days": 879
+    },
+    {
+      "ts_code": "301505.SZ",
+      "cov_days": 657,
+      "missing_days": 878
+    },
+    {
+      "ts_code": "301329.SZ",
+      "cov_days": 659,
+      "missing_days": 876
+    },
+    {
+      "ts_code": "301503.SZ",
+      "cov_days": 659,
+      "missing_days": 876
+    },
+    {
+      "ts_code": "301456.SZ",
+      "cov_days": 660,
+      "missing_days": 875
+    },
+    {
+      "ts_code": "301272.SZ",
+      "cov_days": 661,
+      "missing_days": 874
+    },
+    {
+      "ts_code": "301370.SZ",
+      "cov_days": 662,
+      "missing_days": 873
+    },
+    {
+      "ts_code": "301381.SZ",
+      "cov_days": 662,
+      "missing_days": 873
+    },
+    {
+      "ts_code": "301292.SZ",
+      "cov_days": 664,
+      "missing_days": 871
+    },
+    {
+      "ts_code": "301486.SZ",
+      "cov_days": 664,
+      "missing_days": 871
+    },
+    {
+      "ts_code": "301488.SZ",
+      "cov_days": 667,
+      "missing_days": 868
+    }
+  ],
+  "samples": [
+    {
+      "ts_code": "920010.BJ",
+      "missing_days": 1468,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "603402.SH",
+      "missing_days": 1459,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "603418.SH",
+      "missing_days": 1394,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "920174.BJ",
+      "missing_days": 1385,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "688729.SH",
+      "missing_days": 1341,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "688775.SH",
+      "missing_days": 1322,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "920305.BJ",
+      "missing_days": 1316,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "001400.SZ",
+      "missing_days": 1293,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "301665.SZ",
+      "missing_days": 1284,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "302132.SZ",
+      "missing_days": 1247,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "920682.BJ",
+      "missing_days": 1205,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "920077.BJ",
+      "missing_days": 1168,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "301551.SZ",
+      "missing_days": 1160,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "920819.BJ",
+      "missing_days": 1085,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "301587.SZ",
+      "missing_days": 1046,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "301591.SZ",
+      "missing_days": 1020,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "688584.SH",
+      "missing_days": 1013,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "920370.BJ",
+      "missing_days": 1004,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "301567.SZ",
+      "missing_days": 997,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "603325.SH",
+      "missing_days": 993,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "301566.SZ",
+      "missing_days": 986,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "301526.SZ",
+      "missing_days": 983,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "301413.SZ",
+      "missing_days": 978,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "301516.SZ",
+      "missing_days": 972,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "603107.SH",
+      "missing_days": 945,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "301555.SZ",
+      "missing_days": 944,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "301489.SZ",
+      "missing_days": 939,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "301558.SZ",
+      "missing_days": 928,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "301500.SZ",
+      "missing_days": 923,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "688716.SH",
+      "missing_days": 922,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "301469.SZ",
+      "missing_days": 902,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "301418.SZ",
+      "missing_days": 901,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "301372.SZ",
+      "missing_days": 895,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "300904.SZ",
+      "missing_days": 893,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "301362.SZ",
+      "missing_days": 890,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "301371.SZ",
+      "missing_days": 887,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "301519.SZ",
+      "missing_days": 884,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "301172.SZ",
+      "missing_days": 883,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "301468.SZ",
+      "missing_days": 881,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "688602.SH",
+      "missing_days": 879,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "301505.SZ",
+      "missing_days": 878,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "301329.SZ",
+      "missing_days": 876,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "301503.SZ",
+      "missing_days": 876,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "301456.SZ",
+      "missing_days": 875,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "301272.SZ",
+      "missing_days": 874,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "301370.SZ",
+      "missing_days": 873,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "301381.SZ",
+      "missing_days": 873,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "301292.SZ",
+      "missing_days": 871,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "301486.SZ",
+      "missing_days": 871,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    },
+    {
+      "ts_code": "301488.SZ",
+      "missing_days": 868,
+      "first_missing": "2020-01-02",
+      "last_missing": "2026-04-28"
+    }
+  ]
+}

@@ -1,0 +1,83 @@
+{
+  "U": {
+    "rows": 98,
+    "columns": [
+      "trade_date",
+      "ts_code",
+      "name",
+      "close",
+      "pct_chg",
+      "amount",
+      "float_mv",
+      "total_mv",
+      "turnover_ratio",
+      "fd_amount",
+      "first_time",
+      "last_time",
+      "open_times",
+      "up_stat",
+      "limit_times",
+      "industry"
+    ],
+    "head": [
+      {
+        "trade_date": "2026-05-08",
+        "ts_code": "000839.SZ",
+        "name": "国安股份",
+        "close": 3.36,
+        "pct_chg": 10.163934707641602,
+        "amount": 171910711,
+        "float_mv": 13170616542.72,
+        "total_mv": 13170616542.72,
+        "turnover_ratio": 1.305259346961975,
+        "fd_amount": 160388585,
+        "first_time": "092500",
+        "last_time": "092500",
+        "open_times": 0,
+        "up_stat": "1/1",
+        "limit_times": 1,
+        "industry": "通信服务"
+      },
+      {
+        "trade_date": "2026-05-08",
+        "ts_code": "002929.SZ",
+        "name": "润建股份",
+        "close": 78.23,
+        "pct_chg": 9.997187614440918,
+        "amount": 1662450144,
+        "float_mv": 16579874301.810001,
+        "total_mv": 22223819974.24,
+        "turnover_ratio": 10.048418045043945,
+        "fd_amount": 165107074,
+        "first_time": "092500",
+        "last_time": "093133",
+        "open_times": 1,
+        "up_stat": "4/3",
+        "limit_times": 2,
+        "industry": "通信服务"
+      },
+      {
+        "trade_date": "2026-05-08",
+        "ts_code": "601991.SH",
+        "name": "大唐发电",
+        "close": 5.54,
+        "pct_chg": 9.920635223388672,
+        "amount": 6675181824,
+        "float_mv": 68674333647.24,
+        "total_mv": 102527176325.12,
+        "turnover_ratio": 9.810202598571777,
+        "fd_amount": 199275345,
+        "first_time": "092502",
+        "last_time": "130502",
+        "open_times": 11,
+        "up_stat": "3/3",
+        "limit_times": 3,
+        "industry": "电力"
+      }
+    ]
+  },
+  "D": {
+    "error_type": "AttributeError",
+    "error": "module 'akshare' has no attribute 'stock_dt_pool_em'"
+  }
+}
