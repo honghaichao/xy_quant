@@ -5,7 +5,7 @@
     PYTHONPATH=. python scripts/batch_scan.py --date 2026-07-14
     PYTHONPATH=. python scripts/batch_scan.py --date 2026-07-14 --batch-size 100
 """
-import argparse, sys, os, time
+import argparse, sys, os, time, json
 from datetime import datetime
 import numpy as np
 import pandas as pd
@@ -37,7 +37,7 @@ def load_stock_data(db: duckdb.DuckDBPyConnection, ts_codes: list[str], target_d
     return db.execute(sql, params).fetchdf()
 
 
-def compute_signals_for_code(ts_code: str, group: pd.DataFrame) -> dict | None:
+def compute_signals_for_code(ts_code: str, group: pd.DataFrame, name_map: dict[str, str]) -> dict | None:
     """对单只股票计算所有策略信号。"""
     # NOTE: lazy imports to avoid top-level import cost
     from signals.signal_cal.basic_module import calculate_indicators
@@ -109,8 +109,21 @@ def compute_signals_for_code(ts_code: str, group: pd.DataFrame) -> dict | None:
 
     broken = ind["close"] < ind["知行多空线"]
 
+    # ── serialize indicators for later factor computation ──
+    try:
+        # Only keep the last value for each indicator (not arrays)
+        flat_indicators = {}
+        for key, val in ind.items():
+            if isinstance(val, (list, np.ndarray)) and len(val) > 0:
+                flat_indicators[key] = val[-1]
+            elif not isinstance(val, (list, np.ndarray)):
+                flat_indicators[key] = val
+        indicators_json = json.dumps(flat_indicators, ensure_ascii=False)
+    except Exception:
+        indicators_json = "{}"
+
     return {
-        "date": group["trade_date"].max(), "code": code, "name": code,
+        "date": group["trade_date"].max(), "code": code, "name": name_map.get(code, code),
         "open": ind["open"], "high": ind["high"], "low": ind["low"],
         "close": ind["close"], "volume": ind["volume"],
         "prev_close": ind["prev_close"], "change_pct": ind["涨幅"],
@@ -121,14 +134,18 @@ def compute_signals_for_code(ts_code: str, group: pd.DataFrame) -> dict | None:
         "signal_buy_blk": blk_buy, "signal_buy_dl": False,
         "signal_buy_dz30": dz30_buy, "signal_buy_scb": scb_sig,
         "signal_buy_blkB2": blkb2_buy,
-        "signal_sell_b1": False, "signal_sell_b2": False,
-        "signal_sell_blk": False, "signal_sell_dl": False,
-        "signal_sell_dz30": False, "signal_sell_scb": False,
-        "signal_sell_blkB2": False,
-        "score_s1": s1, "signal_s1_full": s1 >= 10,
-        "signal_s1_half": 5 <= s1 < 10,
+        "signal_sell_b1": s1 >= 12 or (8 <= s1 < 12),
+        "signal_sell_b2": s1 >= 12 or (8 <= s1 < 12),
+        "signal_sell_blk": s1 >= 12 or (8 <= s1 < 12),
+        "signal_sell_dl": False,
+        "signal_sell_dz30": s1 >= 12 or (8 <= s1 < 12),
+        "signal_sell_scb": s1 >= 12 or (8 <= s1 < 12),
+        "signal_sell_blkB2": s1 >= 12 or (8 <= s1 < 12),
+        "score_s1": s1, "signal_s1_full": s1 >= 12,
+        "signal_s1_half": 8 <= s1 < 12,
         "signal_跌破多空线": broken, "signal_止损": False,
-        "is_observing": broken, "indicators": "{}",
+        "is_observing": broken,
+        "indicators": indicators_json,
     }
 
 
@@ -146,6 +163,14 @@ def run(target_date: str, batch_size: int = 0) -> dict:
     print(f"Scanning {len(all_codes)} stocks for {td}")
     t0 = time.time()
 
+    if not all_codes:
+        print(f"No stocks with daily_bar data for {td} — skipping scan.")
+        return {
+            "date": td, "total_stocks": 0,
+            "success_count": 0, "fail_count": 0,
+            "signal_stats": {}, "duration": time.time() - t0,
+        }
+
     # 拉取全市场最近 DATA_DAYS 数据一次性
     db = duckdb.connect(DB_PATH, read_only=True)
     df_all = load_stock_data(db, all_codes, td)
@@ -153,11 +178,18 @@ def run(target_date: str, batch_size: int = 0) -> dict:
 
     print(f"Loaded {len(df_all)} rows from DuckDB in {time.time()-t0:.1f}s")
 
+    # 加载股票名称映射
+    from utils.stock_name import load_name_map
+    name_map = load_name_map()
+    print(f"Loaded {len(name_map)} stock names from PostgreSQL")
+    if not name_map:
+        print("WARNING: name map empty — stock names will display as codes")
+
     results = []
     grouped = df_all.groupby("ts_code")
 
     for i, (ts_code, group) in enumerate(grouped):
-        r = compute_signals_for_code(ts_code, group)
+        r = compute_signals_for_code(ts_code, group, name_map)
         if r:
             results.append(r)
         if (i + 1) % 500 == 0:
@@ -199,6 +231,14 @@ def main() -> int:
     p.add_argument("--batch-size", type=int, default=0, help="限制股票数")
     result = run(target_date=p.parse_args().date)
     return 0
+
+
+def run_job(**kwargs: object) -> dict:
+    """Scheduler entry point — uses today's date by default."""
+    from datetime import date as dt_date
+    target = str(kwargs.get("date", dt_date.today().strftime("%Y%m%d")))
+    batch = int(kwargs.get("batch_size", 0))
+    return run(target_date=target, batch_size=batch)
 
 
 if __name__ == "__main__":

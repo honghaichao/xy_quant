@@ -591,6 +591,10 @@ def get_b1_sell_signal(name: str, indicators: Dict, positions_data: tuple = None
     
     sell_condition = (signal_s1_full or signal_s1_half or signal_跌破多空线 or signal_止损)
 
+    # S1_FULL/HALF 可独立触发卖出（不依赖持仓），跌破多空线和止损需要持仓
+    if signal_s1_full or signal_s1_half:
+        sell_condition = True
+
     if sell_condition:
         logger.info(f"\n=== B1卖出信号详情 ===")
         logger.info(datetime.now().strftime('%Y-%m-%d'))
@@ -602,7 +606,7 @@ def get_b1_sell_signal(name: str, indicators: Dict, positions_data: tuple = None
         logger.info(f"跌破多空线: {signal_跌破多空线}")
         logger.info(f"3%止损: {signal_止损}")
         logger.info(f"当天收盘价: {indicators['close']}")
-        logger.info(f"当天的多空线: {indicators['知行多空线']}")
+        logger.info(f"当天的多空线: {indicators.get('知行多空线', 'N/A')}")
 
     return sell_condition
 
@@ -624,6 +628,10 @@ def get_b2_sell_signal(name: str, indicators: Dict, positions_data: tuple = None
     
     sell_condition = (signal_s1_full or signal_s1_half or signal_跌破多空线 or signal_止损)
 
+    # S1_FULL/HALF 可独立触发卖出（不依赖持仓），跌破多空线和止损需要持仓
+    if signal_s1_full or signal_s1_half:
+        sell_condition = True
+
     if sell_condition:
         logger.info(f"\n=== B2卖出信号详情 ===")
         logger.info(datetime.now().strftime('%Y-%m-%d'))
@@ -635,7 +643,7 @@ def get_b2_sell_signal(name: str, indicators: Dict, positions_data: tuple = None
         logger.info(f"跌破多空线: {signal_跌破多空线}")
         logger.info(f"3%止损: {signal_止损}")
         logger.info(f"当天收盘价: {indicators['close']}")
-        logger.info(f"当天的多空线: {indicators['知行多空线']}")
+        logger.info(f"当天的多空线: {indicators.get('知行多空线', 'N/A')}")
 
     return sell_condition
 
@@ -657,6 +665,10 @@ def get_BLKB2_sell_signal(name: str, indicators: Dict, positions_data: tuple = N
     
     sell_condition = (signal_s1_full or signal_s1_half or signal_跌破多空线 or signal_止损)
 
+    # S1_FULL/HALF 可独立触发卖出（不依赖持仓），跌破多空线和止损需要持仓
+    if signal_s1_full or signal_s1_half:
+        sell_condition = True
+
     if sell_condition:
         logger.info(f"\n=== 暴力k+B2卖出信号详情 ===")
         logger.info(datetime.now().strftime('%Y-%m-%d'))
@@ -668,7 +680,7 @@ def get_BLKB2_sell_signal(name: str, indicators: Dict, positions_data: tuple = N
         logger.info(f"跌破多空线: {signal_跌破多空线}")
         logger.info(f"3%止损: {signal_止损}")
         logger.info(f"当天收盘价: {indicators['close']}")
-        logger.info(f"当天的多空线: {indicators['知行多空线']}")
+        logger.info(f"当天的多空线: {indicators.get('知行多空线', 'N/A')}")
 
     return sell_condition
 
@@ -690,6 +702,10 @@ def get_BLK_sell_signal(name: str, indicators: Dict, positions_data: tuple = Non
     
     sell_condition = (signal_s1_full or signal_s1_half or signal_跌破多空线 or signal_止损)
 
+    # S1_FULL/HALF 可独立触发卖出（不依赖持仓），跌破多空线和止损需要持仓
+    if signal_s1_full or signal_s1_half:
+        sell_condition = True
+
     if sell_condition:
         logger.info(f"\n=== 暴力k卖出信号详情 ===")
         logger.info(datetime.now().strftime('%Y-%m-%d'))
@@ -701,7 +717,7 @@ def get_BLK_sell_signal(name: str, indicators: Dict, positions_data: tuple = Non
         logger.info(f"跌破多空线: {signal_跌破多空线}")
         logger.info(f"3%止损: {signal_止损}")
         logger.info(f"当天收盘价: {indicators['close']}")
-        logger.info(f"当天的多空线: {indicators['知行多空线']}")
+        logger.info(f"当天的多空线: {indicators.get('知行多空线', 'N/A')}")
 
     return sell_condition
     
@@ -723,6 +739,10 @@ def get_SCB_sell_signal(name: str, indicators: Dict, positions_data: tuple = Non
     
     sell_condition = (signal_s1_full or signal_s1_half or signal_跌破多空线 or signal_止损)
 
+    # S1_FULL/HALF 可独立触发卖出（不依赖持仓），跌破多空线和止损需要持仓
+    if signal_s1_full or signal_s1_half:
+        sell_condition = True
+
     if sell_condition:
         logger.info(f"\n=== 沙尘暴卖出信号详情 ===")
         logger.info(datetime.now().strftime('%Y-%m-%d'))
@@ -734,7 +754,7 @@ def get_SCB_sell_signal(name: str, indicators: Dict, positions_data: tuple = Non
         logger.info(f"跌破多空线: {signal_跌破多空线}")
         logger.info(f"3%止损: {signal_止损}")
         logger.info(f"当天收盘价: {indicators['close']}")
-        logger.info(f"当天的多空线: {indicators['知行多空线']}")
+        logger.info(f"当天的多空线: {indicators.get('知行多空线', 'N/A')}")
 
     return sell_condition
 
@@ -756,6 +776,10 @@ def get_DZ30_sell_signal(name: str, indicators: Dict, positions_data: tuple = No
     
     sell_condition = (signal_s1_full or signal_s1_half or signal_跌破多空线 or signal_止损)
 
+    # S1_FULL/HALF 可独立触发卖出（不依赖持仓），跌破多空线和止损需要持仓
+    if signal_s1_full or signal_s1_half:
+        sell_condition = True
+
     if sell_condition:
         logger.info(f"\n=== 单针30卖出信号详情 ===")
         logger.info(datetime.now().strftime('%Y-%m-%d'))
@@ -767,7 +791,7 @@ def get_DZ30_sell_signal(name: str, indicators: Dict, positions_data: tuple = No
         logger.info(f"跌破多空线: {signal_跌破多空线}")
         logger.info(f"3%止损: {signal_止损}")
         logger.info(f"当天收盘价: {indicators['close']}")
-        logger.info(f"当天的多空线: {indicators['知行多空线']}")
+        logger.info(f"当天的多空线: {indicators.get('知行多空线', 'N/A')}")
 
     return sell_condition
 
@@ -820,8 +844,18 @@ def process_single_stock(args: tuple) -> Optional[Dict]:
         BLK_sell_condition = get_BLK_sell_signal(name, indicators, positions_data)
         SCB_sell_condition = get_SCB_sell_signal(name, indicators, positions_data)
         DZ30_sell_condition = get_DZ30_sell_signal(name, indicators, positions_data)
-        
-        
+
+        # S1_FULL/HALF 信号也直接体现在 result 中
+        # (各 sell 函数已处理, 这里作为兜底保证信号不丢)
+        if signal_s1_full or signal_s1_half:
+            b1_sell_condition = b1_sell_condition or True
+            b2_sell_condition = b2_sell_condition or True
+            BLKB2_sell_condition = BLKB2_sell_condition or True
+            BLK_sell_condition = BLK_sell_condition or True
+            SCB_sell_condition = SCB_sell_condition or True
+            DZ30_sell_condition = DZ30_sell_condition or True
+
+
         # 转换numpy array为list以便JSON序列化
         # 结果记录
         indicators_serializable = convert_to_serializable(indicators)
@@ -854,13 +888,14 @@ def process_single_stock(args: tuple) -> Optional[Dict]:
             'signal_buy_scb': SCB_buy_condition,
             'signal_buy_blkB2': BLKB2_buy_condition,
 
-            'signal_sell_b1': b1_sell_condition,
-            'signal_sell_b2': b2_sell_condition,
-            'signal_sell_blk': BLK_sell_condition,
+            # S1_FULL/HALF 触发全部策略卖出（不通过 sell 函数，直接覆盖）
+            'signal_sell_b1': b1_sell_condition or signal_s1_full or signal_s1_half,
+            'signal_sell_b2': b2_sell_condition or signal_s1_full or signal_s1_half,
+            'signal_sell_blk': BLK_sell_condition or signal_s1_full or signal_s1_half,
             'signal_sell_dl': False,
-            'signal_sell_dz30': DZ30_sell_condition,
-            'signal_sell_scb': SCB_sell_condition,
-            'signal_sell_blkB2': BLKB2_sell_condition,
+            'signal_sell_dz30': DZ30_sell_condition or signal_s1_full or signal_s1_half,
+            'signal_sell_scb': SCB_sell_condition or signal_s1_full or signal_s1_half,
+            'signal_sell_blkB2': BLKB2_sell_condition or signal_s1_full or signal_s1_half,
 
             'score_s1': score_s1,
             'signal_s1_full': signal_s1_full,
@@ -913,7 +948,12 @@ def scan_signals(trading_date: str, workers: int = DEFAULT_WORKERS) -> Dict[str,
     pool = None
     try:
         import multiprocessing as _mp
-        _mp.set_start_method("fork", force=True)
+        # macOS 默认 spawn 模式确保子进程重新 import 最新代码
+        # fork 模式会继承父进程的旧模块内存，导致修改不生效
+        try:
+            _mp.set_start_method("spawn", force=True)
+        except RuntimeError:
+            pass  # already set
         pool = Pool(processes=workers)
         for result in pool.imap_unordered(process_single_stock, args_list, chunksize=100):
             if result:
