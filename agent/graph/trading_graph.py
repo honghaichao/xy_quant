@@ -9,6 +9,9 @@ from agent.base import AgentConfig
 from agent.analysts.market_analyst import MarketAnalyst
 from agent.analysts.news_analyst import NewsAnalyst
 from agent.analysts.fundamentals_analyst import FundamentalsAnalyst
+from agent.analysts.intraday_analyst import IntradayPanelAnalyst
+from agent.analysts.moneyflow_analyst import MoneyFlowAnalyst
+from agent.analysts.deep_stock_analyst import DeepStockAnalyst
 from agent.researchers.bull_researcher import BullResearcher
 from agent.researchers.bear_researcher import BearResearcher
 from agent.risk_mgmt.debate_aggregator import DebateAggregator
@@ -96,6 +99,30 @@ class TradingAgentsGraph:
                     llm_adapter=self.llm
                 )
                 self._analysts['fundamentals'] = FundamentalsAnalyst(fund_config)
+
+            if 'intraday' in self.selected_analysts:
+                intraday_config = AgentConfig(
+                    name='intraday_analyst',
+                    role='intraday_analyst',
+                    llm_adapter=self.llm
+                )
+                self._analysts['intraday'] = IntradayPanelAnalyst(intraday_config)
+
+            if 'moneyflow' in self.selected_analysts:
+                moneyflow_config = AgentConfig(
+                    name='moneyflow_analyst',
+                    role='moneyflow_analyst',
+                    llm_adapter=self.llm
+                )
+                self._analysts['moneyflow'] = MoneyFlowAnalyst(moneyflow_config)
+
+            if 'deep_stock' in self.selected_analysts:
+                deep_config = AgentConfig(
+                    name='deep_stock_analyst',
+                    role='deep_stock_analyst',
+                    llm_adapter=self.llm
+                )
+                self._analysts['deep_stock'] = DeepStockAnalyst(deep_config)
             
             bull_config = AgentConfig(
                 name='bull_researcher',
@@ -125,7 +152,10 @@ class TradingAgentsGraph:
         trade_date: str,
         price_data: Any = None,
         news_list: List = None,
-        fundamentals_data: Dict = None
+        fundamentals_data: Dict = None,
+        intraday_text: str = "",
+        moneyflow_text: str = "",
+        financials_text: str = "",
     ) -> Dict[str, str]:
         """并行运行分析师
         
@@ -143,8 +173,8 @@ class TradingAgentsGraph:
         
         if self.debug:
             logger.info(f"开始并行运行分析师: {self.selected_analysts}")
-        
-        with ThreadPoolExecutor(max_workers=3) as executor:
+
+        with ThreadPoolExecutor(max_workers=6) as executor:
             future_to_key = {}
             
             if 'market' in self._analysts and price_data is not None:
@@ -174,6 +204,27 @@ class TradingAgentsGraph:
                     fundamentals_input
                 )
                 future_to_key[future] = 'fundamentals'
+
+            if 'intraday' in self._analysts and intraday_text:
+                future = executor.submit(
+                    self._analysts['intraday'].run,
+                    {'symbol': stock_code, 'intraday_text': intraday_text}
+                )
+                future_to_key[future] = 'intraday'
+
+            if 'moneyflow' in self._analysts and moneyflow_text:
+                future = executor.submit(
+                    self._analysts['moneyflow'].run,
+                    {'symbol': stock_code, 'moneyflow_text': moneyflow_text}
+                )
+                future_to_key[future] = 'moneyflow'
+
+            if 'deep_stock' in self._analysts and financials_text:
+                future = executor.submit(
+                    self._analysts['deep_stock'].run,
+                    {'symbol': stock_code, 'financials_text': financials_text}
+                )
+                future_to_key[future] = 'deep_stock'
             
             for future in as_completed(future_to_key):
                 key = future_to_key[future]
@@ -220,7 +271,10 @@ class TradingAgentsGraph:
         market_report = reports.get('market', '')
         news_report = reports.get('news', '')
         fundamentals_report = reports.get('fundamentals', '')
-        
+        intraday_report = reports.get('intraday', '')
+        moneyflow_report = reports.get('moneyflow', '')
+        deep_stock_report = reports.get('deep_stock', '')
+
         if self._bull_researcher:
             try:
                 bull_result = self._bull_researcher.research_with_reports(
@@ -343,7 +397,10 @@ class TradingAgentsGraph:
         trade_date: str = '',
         price_data: Any = None,
         news_list: List = None,
-        fundamentals_data: Dict = None
+        fundamentals_data: Dict = None,
+        intraday_text: str = "",
+        moneyflow_text: str = "",
+        financials_text: str = "",
     ) -> Dict[str, Any]:
         """运行完整的智能体工作流
         
@@ -388,12 +445,18 @@ class TradingAgentsGraph:
             trade_date=trade_date,
             price_data=price_data,
             news_list=news_list,
-            fundamentals_data=fundamentals_data
+            fundamentals_data=fundamentals_data,
+            intraday_text=intraday_text,
+            moneyflow_text=moneyflow_text,
+            financials_text=financials_text,
         )
-        
+
         state['market_report'] = reports.get('market', '')
         state['news_report'] = reports.get('news', '')
         state['fundamentals_report'] = reports.get('fundamentals', '')
+        state['intraday_report'] = reports.get('intraday', '')
+        state['moneyflow_report'] = reports.get('moneyflow', '')
+        state['deep_stock_report'] = reports.get('deep_stock', '')
         
         research = self._run_researchers(
             stock_code=company_of_interest,

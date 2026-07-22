@@ -176,10 +176,40 @@ def analyze_stock(
     try:
         graph = TradingAgentsGraph(
             llm=llm,
+            selected_analysts=['market', 'news', 'fundamentals', 'intraday', 'moneyflow', 'deep_stock'],
             debug=debug,
             memory_manager=None,
             include_memory_context=False,
         )
+
+        # Prepare new analysis inputs
+        from datetime import date as _date
+        intraday_text = ""
+        moneyflow_text = ""
+        financials_text = ""
+        try:
+            td = _date.today()
+            if trade_date:
+                td = _date.fromisoformat(trade_date)
+            from agent.dataflows.markets.intraday import format_intraday_for_llm
+            intraday_text = format_intraday_for_llm(symbol, td)
+        except Exception as e:
+            errors.append(f"盘中数据获取失败: {e}")
+            partial = True
+
+        try:
+            from agent.dataflows.markets.moneyflow import format_money_flow_for_llm
+            moneyflow_text = format_money_flow_for_llm(symbol)
+        except Exception as e:
+            errors.append(f"资金流数据获取失败: {e}")
+            partial = True
+
+        try:
+            from agent.dataflows.financials import format_financials_for_llm
+            financials_text = format_financials_for_llm(symbol)
+        except Exception as e:
+            errors.append(f"深度财务数据获取失败: {e}")
+            partial = True
 
         result = graph.propagate(
             company_of_interest=symbol,
@@ -187,6 +217,9 @@ def analyze_stock(
             price_data=price_data,
             news_list=news_list,
             fundamentals_data=fundamentals_data,
+            intraday_text=intraday_text,
+            moneyflow_text=moneyflow_text,
+            financials_text=financials_text,
         )
     except Exception as e:
         errors.append(f"Agent 工作流异常: {e}")

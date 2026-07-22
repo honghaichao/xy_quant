@@ -29,6 +29,9 @@ class AgentState(TypedDict, total=False):
     market_report: str
     news_report: str
     fundamentals_report: str
+    intraday_report: str
+    moneyflow_report: str
+    deep_stock_report: str
     bull_research: str
     bear_research: str
     investment_decision: str
@@ -54,6 +57,9 @@ def create_initial_state(company_of_interest: str, trade_date: str = '') -> Agen
         market_report='',
         news_report='',
         fundamentals_report='',
+        intraday_report='',
+        moneyflow_report='',
+        deep_stock_report='',
         bull_research='',
         bear_research='',
         investment_decision='',

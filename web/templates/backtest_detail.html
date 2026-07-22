@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>菜场大妈选股法 — 回测报告</title>
+<script src="https://cdn.bootcdn.net/ajax/libs/echarts/5.5.0/echarts.min.js"></script>
+<!-- 备用: 如无法加载请换用 unpkg.com/echarts@5.5.0/dist/echarts.min.js -->
+<script>window.echarts || document.write('<script src=\"https://unpkg.com/echarts@5.5.0/dist/echarts.min.js\"><\\/script>')</script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Heiti TC", "SimHei", sans-serif;
+         background: #f5f7fa; color: #1a1a2e; }
+  .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: white;
+            padding: 24px 40px; display: flex; justify-content: space-between; align-items: center; }
+  .header h1 { font-size: 22px; font-weight: 600; }
+  .header .sub { font-size: 13px; opacity: 0.7; margin-top: 4px; }
+  .header .actions { display: flex; gap: 10px; }
+  .btn { padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer;
+         font-size: 13px; font-weight: 500; text-decoration: none; }
+  .btn-primary { background: #3b82f6; color: white; }
+  .btn-outline { background: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.3); }
+  .btn:hover { opacity: 0.85; }
+  .container { max-width: 1280px; margin: 0 auto; padding: 24px 40px; }
+  .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .kpi-card { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  .kpi-card .label { font-size: 12px; color: #6b7280; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .kpi-card .value { font-size: 26px; font-weight: 700; }
+  .kpi-card .sub { font-size: 12px; color: #9ca3af; margin-top: 4px; }
+  .green { color: #059669; }
+  .red { color: #dc2626; }
+  .chart-row { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .chart-card { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  .chart-card.full { grid-column: 1 / -1; }
+  .chart-box { width: 100%; height: 420px; }
+  .chart-box.tall { height: 500px; }
+  .tabs { display: flex; gap: 0; margin-bottom: 16px; border-bottom: 2px solid #e5e7eb; }
+  .tab { padding: 8px 20px; cursor: pointer; font-size: 13px; font-weight: 500;
+         color: #6b7280; border-bottom: 2px solid transparent; margin-bottom: -2px; }
+  .tab.active { color: #3b82f6; border-bottom-color: #3b82f6; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 10px 12px; background: #f9fafb; color: #6b7280;
+       font-weight: 500; border-bottom: 1px solid #e5e7eb; position: sticky; top: 0; }
+  td { padding: 8px 12px; border-bottom: 1px solid #f3f4f6; }
+  tr:hover { background: #f9fafb; }
+  .trades-wrap { max-height: 600px; overflow-y: auto; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .badge-buy { background: #d1fae5; color: #059669; }
+  .badge-sell { background: #fee2e2; color: #dc2626; }
+  .download-bar { display: flex; gap: 12px; align-items: center; padding: 12px 0; }
+  .page-loader { text-align: center; padding: 80px; color: #6b7280; font-size: 16px; }
+  @media (max-width: 768px) {
+    .container { padding: 16px; }
+    .chart-row { grid-template-columns: 1fr; }
+    .kpi-row { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>🥬 菜场大妈选股法 — 回测报告</h1>
+    <div class="sub" id="header-info">加载中...</div>
+  </div>
+  <div class="actions">
+    <a id="btn-download-csv" class="btn btn-outline" href="#">📥 交易记录 CSV</a>
+    <a id="btn-download-json" class="btn btn-outline" href="#">📥 完整数据 JSON</a>
+    <a href="/" class="btn btn-primary">← 回到主页</a>
+  </div>
+</div>
+
+<div id="loader" class="page-loader">⏳ 加载回测数据...</div>
+
+<div id="content" style="display:none">
+<div class="container">
+
+  <!-- KPIs -->
+  <div class="kpi-row" id="kpi-row"></div>
+
+  <!-- Charts -->
+  <div class="chart-row">
+    <div class="chart-card">
+      <h3 style="margin-bottom:12px">📈 权益曲线</h3>
+      <div class="chart-box tall" id="chart-equity"></div>
+    </div>
+    <div class="chart-card">
+      <h3 style="margin-bottom:12px">📉 回撤曲线</h3>
+      <div class="chart-box" id="chart-drawdown"></div>
+    </div>
+  </div>
+
+  <!-- Monthly Returns + Trade Distribution -->
+  <div class="chart-row">
+    <div class="chart-card">
+      <h3 style="margin-bottom:12px">📅 月度收益热力图</h3>
+      <div class="chart-box" id="chart-monthly"></div>
+    </div>
+    <div class="chart-card">
+      <h3 style="margin-bottom:12px">💰 交易盈亏分布</h3>
+      <div class="chart-box" id="chart-pnl-dist"></div>
+    </div>
+  </div>
+
+  <!-- Trades Table + Positions -->
+  <div class="chart-card full">
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('trades')">📋 交易记录</div>
+      <div class="tab" onclick="switchTab('positions')">📊 每日持仓</div>
+      <div class="tab" onclick="switchTab('downloads')">📥 数据下载</div>
+    </div>
+
+    <div class="tab-content active" id="tab-trades">
+      <div class="trades-wrap">
+        <table><thead>
+          <tr><th>日期</th><th>代码</th><th>方向</th><th>价格</th><th>数量</th><th>金额</th><th>佣金</th><th>盈亏</th></tr>
+        </thead><tbody id="trades-body"></tbody></table>
+      </div>
+    </div>
+
+    <div class="tab-content" id="tab-positions">
+      <table><thead>
+        <tr><th>日期</th><th>持仓代码</th><th>持仓数</th></tr>
+      </thead><tbody id="positions-body"></tbody></table>
+    </div>
+
+    <div class="tab-content" id="tab-downloads">
+      <div class="download-bar">
+        <a class="btn btn-primary" id="dl-csv" href="#">📥 下载交易记录 (CSV)</a>
+        <a class="btn btn-primary" id="dl-json" href="#">📥 下载完整数据 (JSON)</a>
+        <a class="btn btn-outline" id="dl-positions" href="#" style="color:#333;border-color:#d1d5db">📥 下载每日持仓 (CSV)</a>
+        <a class="btn btn-outline" id="dl-report" href="#" style="color:#333;border-color:#d1d5db">📥 下载回测日志 (TXT)</a>
+      </div>
+      <p style="margin-top:16px;color:#6b7280;font-size:13px">
+        💡 CSV 文件可用 Excel / WPS / Numbers 打开查看。JSON 文件包含完整的权益曲线和指标数据。
+      </p>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<script>
+const RUN_ID = "{{ run_id }}";
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.querySelector(`.tab:nth-child(${name==='trades'?1:name==='positions'?2:3})`).classList.add('active');
+  document.getElementById(`tab-${name}`).classList.add('active');
+}
+
+function formatNum(n, d=2) { return Number(n||0).toLocaleString('zh-CN', {minimumFractionDigits:d,maximumFractionDigits:d}); }
+function pctStr(n) { const v = Number(n||0)*100; return (v>=0?'+':'')+v.toFixed(2)+'%'; }
+
+async function load() {
+  try {
+    const [perfRes, tradesRes, pnlRes] = await Promise.all([
+      fetch(`/api/backtest/${RUN_ID}`),
+      fetch(`/api/backtest/${RUN_ID}/trades`),
+      fetch(`/api/backtest/detail/${RUN_ID}/full`)
+    ]);
+
+    if (!perfRes.ok) throw new Error(`API /backtest/${RUN_ID}: HTTP ${perfRes.status}`);
+    if (!tradesRes.ok) throw new Error(`API /backtest/${RUN_ID}/trades: HTTP ${tradesRes.status}`);
+    if (!pnlRes.ok)  throw new Error(`API /backtest/detail/${RUN_ID}/full: HTTP ${pnlRes.status}`);
+
+    const perf = await perfRes.json();
+    const trades = await tradesRes.json();
+    const full = await pnlRes.json();
+
+    document.getElementById('loader').style.display = 'none';
+    document.getElementById('content').style.display = '';
+
+    // header
+    document.getElementById('header-info').textContent =
+      `回测区间: ${perf.start_date || '?'} ~ ${perf.end_date || '?'} | ` +
+      `初始资金: ¥${formatNum(perf.initial_capital||0, 0)} | ` +
+      `持仓数: ${full.top_n || 5} 只`;
+
+    // download buttons
+    const csvUrl = `/api/backtest/${RUN_ID}/export?format=csv`;
+    const jsonUrl = `/api/backtest/${RUN_ID}/export?format=json`;
+    document.getElementById('btn-download-csv').href = csvUrl;
+    document.getElementById('btn-download-json').href = jsonUrl;
+    document.getElementById('dl-csv').href = csvUrl;
+    document.getElementById('dl-json').href = jsonUrl;
+
+    // KPIs
+    const m = perf.metrics || {};
+    const kpis = [
+      { label: '总收益率', value: pctStr(m.total_return || 0), cls: (m.total_return||0)>=0?'green':'red', sub: `¥${formatNum((full.final_value||0)-(full.initial_cash||0),2)}` },
+      { label: '年化收益率', value: pctStr(m.annual_return || 0), cls: (m.annual_return||0)>=0?'green':'red' },
+      { label: '夏普比率', value: ((m.sharpe_ratio||0)).toFixed(2), cls: (m.sharpe_ratio||0)>=1?'green':(m.sharpe_ratio||0)>=0?'':'red', sub: 'Sortino: '+(m.sortino_ratio||0).toFixed(2) },
+      { label: '最大回撤', value: ((m.max_drawdown||0)*100).toFixed(2)+'%', cls: 'red', sub: 'Calmar: '+(m.calmar_ratio||0).toFixed(2) },
+      { label: '胜率', value: ((m.win_rate||0)*100).toFixed(1)+'%', cls: (m.win_rate||0)>=0.5?'green':'', sub: `交易 ${m.total_trades||0} 笔` },
+      { label: '年化波动', value: ((m.annual_volatility||0)*100).toFixed(2)+'%' },
+    ];
+    document.getElementById('kpi-row').innerHTML = kpis.map(k =>
+      `<div class="kpi-card"><div class="label">${k.label}</div><div class="value ${k.cls||''}">${k.value}</div>${k.sub?`<div class="sub">${k.sub}</div>`:''}</div>`
+    ).join('');
+
+    // equity + drawdown charts
+    const dates = (full.daily_pnl||[]).map(d => d.date);
+    const values = (full.daily_pnl||[]).map(d => d.total_value);
+    const initVal = values[0] || full.initial_cash || 500000;
+    const retPct = values.map(v => ((v/initVal)-1)*100);
+
+    // compute drawdown
+    let peak = values[0];
+    const ddPct = values.map(v => {
+      peak = Math.max(peak, v);
+      return ((v-peak)/peak)*100;
+    });
+
+    // equity chart
+    echarts.init(document.getElementById('chart-equity')).setOption({
+      tooltip: { trigger: 'axis' },
+      grid: { left: 70, right: 20, top: 20, bottom: 40 },
+      xAxis: { type: 'category', data: dates, axisLabel: { formatter: v => v.substring(5), rotate: 45 } },
+      yAxis: { type: 'value', name: '收益率 %', axisLabel: { formatter: '{value}%' } },
+      series: [{
+        name: '策略收益', type: 'line', data: retPct, smooth: true,
+        lineStyle: { color: '#3b82f6', width: 2.5 },
+        itemStyle: { color: '#3b82f6' },
+        areaStyle: { color: { type:'linear', x:0,y:0,x2:0,y2:1,
+          colorStops:[{offset:0,color:'rgba(59,130,246,0.15)'},{offset:1,color:'rgba(59,130,246,0.02)'}] } },
+        markLine: { data: [{ yAxis: 0 }], lineStyle: { color: '#9ca3af', type: 'dashed' } }
+      }],
+      dataZoom: [{ type: 'inside' }, { type: 'slider', bottom: 10 }],
+    });
+
+    // drawdown chart
+    echarts.init(document.getElementById('chart-drawdown')).setOption({
+      tooltip: { trigger: 'axis' },
+      grid: { left: 70, right: 20, top: 20, bottom: 40 },
+      xAxis: { type: 'category', data: dates, axisLabel: { formatter: v => v.substring(5), rotate: 45 } },
+      yAxis: { type: 'value', name: '回撤 %', inverse: true, axisLabel: { formatter: '{value}%' } },
+      series: [{
+        name: '回撤', type: 'line', data: ddPct, smooth: true,
+        lineStyle: { color: '#dc2626', width: 2 },
+        itemStyle: { color: '#dc2626' },
+        areaStyle: { color: 'rgba(220,38,38,0.25)' },
+        markLine: {
+          data: [{ type: 'min', name: '最大回撤' }],
+          label: { formatter: '最大回撤\n{c}%' },
+          lineStyle: { color: '#dc2626', type: 'dashed' }
+        }
+      }]
+    });
+
+    // monthly returns heatmap
+    const monthlyData = full.monthly_returns || {};
+    const years = [...new Set(Object.keys(monthlyData).map(k => k.split('-')[0]))].sort();
+    const months = ['01','02','03','04','05','06','07','08','09','10','11','12'];
+    const heatData = [];
+    months.forEach((m, mi) => {
+      years.forEach((y, yi) => {
+        const key = `${y}-${m}`;
+        if (monthlyData[key] !== undefined) {
+          heatData.push([yi, mi, (monthlyData[key]*100).toFixed(2)]);
+        }
+      });
+    });
+    echarts.init(document.getElementById('chart-monthly')).setOption({
+      tooltip: { formatter: p => `${years[p.value[0]]}-${months[p.value[1]]}: ${p.value[2]}%` },
+      grid: { left: 60, right: 50, top: 10, bottom: 30 },
+      xAxis: { type: 'category', data: years, position: 'top' },
+      yAxis: { type: 'category', data: months.map(m => m+'月'), inverse: true },
+      visualMap: { min: -15, max: 15, calculable: true, orient: 'vertical', right: 0,
+        inRange: { color: ['#dc2626', '#fca5a5', '#ffffff', '#86efac', '#059669'] } },
+      series: [{ type: 'heatmap', data: heatData, label: { show: true, fontSize: 11,
+        formatter: p => (p.value[2]>=0?'+':'')+p.value[2]+'%' }, emphasis: { itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.5)' } } }],
+    });
+
+    // PnL distribution
+    const sellTrades = (full.trades||[]).filter(t => t.action === '卖出');
+    const pnls = sellTrades.map(t => t.pnl);
+    echarts.init(document.getElementById('chart-pnl-dist')).setOption({
+      tooltip: { trigger: 'axis' },
+      grid: { left: 60, right: 20, top: 20, bottom: 30 },
+      xAxis: { type: 'value', name: '盈亏 (¥)' },
+      yAxis: { type: 'value', name: '次数' },
+      series: [{
+        type: 'histogram', data: pnls,
+        barWidth: '99%',
+        itemStyle: {
+          color: params => params.value[0] >= 0 ? 'rgba(5,150,105,0.7)' : 'rgba(220,38,38,0.7)'
+        }
+      }]
+    });
+
+    // trades table
+    const tradesHtml = (full.trades||[]).map(t =>
+      `<tr><td>${t.date}</td><td><a href="/stock/${t.code}" target="_blank">${t.code}</a></td><td><span class="badge ${t.action==='买入'?'badge-buy':'badge-sell'}">${t.action}</span></td>` +
+      `<td>${formatNum(t.price,3)}</td><td>${t.shares}</td><td>${formatNum(t.amount,2)}</td>` +
+      `<td>${formatNum(t.commission,2)}</td><td style="color:${(t.pnl||0)>=0?'#059669':'#dc2626'}">${(t.pnl||0)>=0?'+':''}${formatNum(t.pnl,2)}</td></tr>`
+    ).join('');
+    document.getElementById('trades-body').innerHTML = tradesHtml;
+
+    // positions table
+    const posHtml = (full.daily_positions||[]).map(p =>
+      `<tr><td>${p.date}</td><td style="font-family:monospace">${p.codes||''}</td><td>${p.count||0}</td></tr>`
+    ).join('');
+    document.getElementById('positions-body').innerHTML = posHtml;
+
+  } catch(e) {
+    document.getElementById('loader').innerHTML = '❌ 加载失败: <br><code>' + e.message + '</code><br><br>请确认 run_id 正确,或打开浏览器 F12→Network 查看请求状态';
+    console.error(e);
+  }
+}
+
+load();
+</script>
+</body>
+</html>

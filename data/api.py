@@ -221,7 +221,53 @@ def get_limit_pool(
     return filtered.sort_values([column for column in ("trade_date", "ts_code") if column in filtered.columns]).reset_index(drop=True)
 
 
-def _load_price_frame(security: str | list[str], frequency: str) -> pd.DataFrame:
+# ── Factor data ────────────────────────────────────────────────────
+
+
+def get_factor_data(
+    ts_code: str | list[str] | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
+    factors: list[str] | None = None,
+) -> pd.DataFrame:
+    """Get computed factor values from factor_data table."""
+    store = get_market_store("duckdb", read_only=True)
+    try:
+        codes = _ensure_code_list(ts_code) if ts_code else None
+        df = store.query("factor_data")
+        df = _filter_by_date_range(df, ("date",), start_date, end_date)
+        if codes:
+            df = df[df["code"].isin(codes)]
+        if factors and not df.empty:
+            keep_cols = ["date", "code"] + [f for f in factors if f in df.columns]
+            df = df[keep_cols]
+        return df.reset_index(drop=True) if not df.empty else df
+    finally:
+        store.close()
+
+
+def get_factor_ic(
+    factor_name: str | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
+) -> pd.DataFrame:
+    """Get IC analysis results from factor_ic table."""
+    store = get_market_store("duckdb", read_only=True)
+    try:
+        df = store.query("factor_ic")
+        df = _filter_by_date_range(df, ("date",), start_date, end_date)
+        if factor_name and not df.empty and "factor_name" in df.columns:
+            df = df[df["factor_name"].str.contains(factor_name)]
+        return df.reset_index(drop=True) if not df.empty else df
+    finally:
+        store.close()
+
+
+def _load_price_frame(
+    security: str | list[str],
+    frequency: str = "daily",
+) -> pd.DataFrame:
+    """Load price data from the appropriate DuckDB table."""
     table = _price_table(security, frequency)
     if table == "index_daily":
         frame = _query_market_table("index_daily")
@@ -236,7 +282,7 @@ def _load_price_frame(security: str | list[str], frequency: str) -> pd.DataFrame
 
 def _query_market_table(table: str) -> pd.DataFrame:
     _validate_table(table, DUCKDB_MARKET_TABLES)
-    store = get_market_store(MARKET_STORE_NAME)
+    store = get_market_store(MARKET_STORE_NAME, read_only=True)
     return store.query(f"SELECT * FROM {table}")
 
 
@@ -338,8 +384,115 @@ def _active_member_codes(frame: pd.DataFrame, as_of_date: date | None) -> list[s
 def _select_fields(frame: pd.DataFrame, fields: list[str] | None) -> pd.DataFrame:
     if fields is None:
         return frame.reset_index(drop=True)
-    available_fields = [field for field in fields if field in frame.columns]
-    return frame.loc[:, available_fields].reset_index(drop=True)
+    # Always include ts_code for downstream processing (groupby, etc.)
+    must_include = {'ts_code', 'trade_date', 'datetime'}
+    effective = [f for f in fields if f in frame.columns]
+    for col in must_include:
+        if col in frame.columns and col not in effective:
+            effective.append(col)
+    return frame.loc[:, effective].reset_index(drop=True)
+
+
+def get_all_securities(
+    types: list[str] | None = None,
+    date: date | None = None,
+) -> pd.DataFrame:
+    """获取所有证券基本信息。
+
+    对应聚宽 get_all_securities()，从 PostgreSQL stock_basic 表读取。
+
+    Args:
+        types: 过滤证券类型，如 ["stock"]。当前仅支持 stock。
+        date: 日期过滤（取该日期或之前上市的股票）。
+
+    Returns:
+        DataFrame with columns: ts_code, symbol, name, area, industry,
+        fullname, market, list_date, delist_date, is_hs, ...
+    """
+    frame = _query_meta_table("stock_basic")
+    if date is not None and "list_date" in frame.columns:
+        d = date.date() if hasattr(date, 'date') else ensure_date(date)
+        list_dates = pd.to_datetime(frame["list_date"], errors="coerce")
+        frame = frame[list_dates.isna() | (list_dates.dt.date <= d)]
+
+    if types is not None:
+        type_filters = set(types)
+        if "stock" in type_filters and "fund" not in type_filters and "index" not in type_filters:
+            pass  # stock_basic already only contains stocks
+
+    # list_status 在当前数据源未填充（全 None），仅在有值时过滤
+    if "list_status" in frame.columns and frame["list_status"].notna().any():
+        frame = frame[frame["list_status"] == "L"]
+
+    return frame.sort_values("ts_code").reset_index(drop=True)
+
+
+def _parse_date(value: str | date) -> date:
+    """Parse date from both YYYYMMDD and YYYY-MM-DD formats."""
+    if isinstance(value, date):
+        return value
+    s = str(value).replace("-", "")
+    return ensure_date(f"{s[:4]}-{s[4:6]}-{s[6:8]}")
+
+
+def get_ticks(
+    security: str,
+    start_date: str | date,
+    end_date: str | date,
+    fields: list[str] | None = None,
+) -> pd.DataFrame:
+    """获取分钟线/tick 数据。
+
+    Args:
+        security: 股票代码，如 "000001.SZ"
+        start_date: 起始日期 (YYYY-MM-DD 或 YYYYMMDD)
+        end_date: 结束日期 (YYYY-MM-DD 或 YYYYMMDD)
+        fields: 需要的字段列表，默认全部
+
+    Returns:
+        DataFrame with columns: ts_code, datetime, freq, open, high, low, close, vol, amount
+    """
+    start = _parse_date(start_date)
+    end = _parse_date(end_date)
+    codes = _ensure_code_list(security)
+
+    # Build list of target month partitions
+    table_names: list[str] = []
+    cursor = start.replace(day=1)
+    while cursor <= end:
+        table_names.append(f"minute_bar_{cursor.strftime('%Y_%m')}")
+        if cursor.month == 12:
+            cursor = cursor.replace(year=cursor.year + 1, month=1)
+        else:
+            cursor = cursor.replace(month=cursor.month + 1)
+
+    store = get_market_store(MARKET_STORE_NAME)
+    try:
+        parts: list[pd.DataFrame] = []
+        code_list = ", ".join(f"'{c}'" for c in codes)
+        for tbl in table_names:
+            try:
+                part = store.query(
+                    f"SELECT * FROM {tbl} WHERE ts_code IN ({code_list})"
+                )
+            except Exception:
+                continue
+            if not part.empty:
+                part["datetime"] = pd.to_datetime(part["datetime"])
+                part = part[
+                    (part["datetime"].dt.date >= start) & (part["datetime"].dt.date <= end)
+                ]
+                if not part.empty:
+                    parts.append(part)
+
+        if not parts:
+            return pd.DataFrame()
+
+        filtered = pd.concat(parts, ignore_index=True)
+        filtered = filtered.sort_values(["ts_code", "datetime"]).reset_index(drop=True)
+        return _select_fields(filtered, fields)
+    finally:
+        store.close()
 
 
 def _resolve_code_column(frame: pd.DataFrame, target_type: str) -> str:

@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>全市场资金流</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+<style>
+  :root { --bg:#0f172a; --card:#1e293b; --text:#e2e8f0; --muted:#94a3b8; --green:#34d399; --red:#f87171; --blue:#38bdf8; --orange:#fb923c; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",monospace; padding:16px; }
+  a { color:var(--blue); text-decoration:none; }
+  .nav { margin-bottom:12px; font-size:14px; display:flex; gap:14px; }
+  .kpi { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+  .kpi>div { background:var(--card); border-radius:8px; padding:12px 18px; font-size:13px; min-width:150px; text-align:center; }
+  .kpi .v { font-size:24px; font-weight:700; }
+  .card { background:var(--card); border-radius:8px; padding:12px; margin-bottom:16px; }
+  .card h3 { font-size:15px; margin-bottom:8px; color:var(--muted); }
+  .pos { color:var(--red); } .neg { color:var(--green); }
+</style>
+</head>
+<body>
+<div class="nav">
+  <a href="/">首页</a> <a href="/factors">因子</a> <a href="/live">实盘</a> <a href="/risk">风控</a> <a href="/strategy-editor">编辑器</a> <a href="/money-flow">资金流</a>
+</div>
+<div class="kpi" id="kpi"></div>
+<div class="card"><h3>📊 全市场资金净流入（近 30 日）</h3><div id="chart_flow" style="width:100%;height:380px;"></div></div>
+<div class="card"><h3>📈 累计资金净流入（30 日）</h3><div id="chart_cum" style="width:100%;height:300px;"></div></div>
+<div class="card"><h3>📋 每日明细</h3><table style="width:100%;font-size:13px;border-collapse:collapse">
+<thead><tr><th>日期</th><th>主力净额(亿)</th><th>超大单(亿)</th><th>大单(亿)</th><th>股票数</th><th>方向</th></tr></thead>
+<tbody id="tbl"></tbody></table></div>
+<div class="card"><h3>🏭 行业板块资金流向（近 30 日 Top 10）</h3><div id="chart_sector" style="width:100%;height:400px;"></div></div>
+<div class="card"><h3>📋 行业资金流 — 最新 & 累计（<span id="sec_date">--</span>）</h3><table style="width:100%;font-size:13px;border-collapse:collapse">
+<thead><tr><th>排名</th><th>行业</th><th>最新主力净额</th><th>30日累计净额</th></tr></thead>
+<tbody id="sector_tbl"></tbody></table></div>
+<div class="card"><h3>🔥 个股主力资金流 Top 20（<span id="stock_date">--</span>）</h3><div id="chart_stock" style="width:100%;height:620px;"></div></div>
+<div class="card"><h3>📋 个股主力资金流明细</h3><div style="max-height:500px;overflow-y:auto"><table style="width:100%;font-size:12px;border-collapse:collapse">
+<thead><tr><th>排名</th><th>代码</th><th>名称</th><th>主力净额(亿)</th><th>涨跌%</th></tr></thead>
+<tbody id="stock_tbl"></tbody></table></div></div>
+
+<script>
+(async()=>{
+  const r=await fetch('/api/money-flow'); const d=await r.json();
+  if(d.error){document.getElementById('kpi').innerHTML=d.error;return;}
+
+  // KPI
+  const latest_main=d.main_net[d.main_net.length-1];
+  const latest_big=d.big_net[d.big_net.length-1];
+  const cum_all=d.cumulative_net[d.cumulative_net.length-1];
+  const upDays=d.main_net.filter(v=>v>0).length;
+  document.getElementById('kpi').innerHTML=`
+    <div>昨日主力净额<div class="v ${latest_main>=0?'pos':'neg'}">${(latest_main/1e4).toFixed(2)}亿</div></div>
+    <div>昨日超大单<div class="v ${latest_big>=0?'pos':'neg'}">${(latest_big/1e4).toFixed(2)}亿</div></div>
+    <div>30日累计主力<div class="v ${cum_all>=0?'pos':'neg'}">${(cum_all/1e4).toFixed(2)}亿</div></div>
+    <div>净流入天数<div class="v">${upDays}/${d.days}</div></div>
+  `;
+
+  // 净流入折线图
+  const c1=echarts.init(document.getElementById('chart_flow'));
+  c1.setOption({
+    tooltip:{trigger:'axis',formatter:function(p){const v=p[0].value;return p[0].axisValue+'<br/>'+p[0].marker+' '+(v/1e4).toFixed(2)+'亿'}},
+    legend:{data:['主力净额','超大单','大单'],textStyle:{color:'#94a3b8'}},
+    grid:{left:70,right:30,top:36,bottom:40},
+    xAxis:{type:'category',data:d.dates,axisLabel:{color:'#94a3b8',rotate:45}},
+    yAxis:{type:'value',axisLabel:{color:'#94a3b8',formatter:function(v){return (v/1e4).toFixed(1)+'亿'}},splitLine:{lineStyle:{color:'#1e293b'}}},
+    series:[
+      {name:'主力净额',type:'line',data:d.main_net,smooth:true,lineStyle:{color:'#f87171',width:2},symbol:'none'},
+      {name:'超大单',type:'line',data:d.super_net,smooth:true,lineStyle:{color:'#fb923c',width:1},symbol:'none'},
+      {name:'大单',type:'line',data:d.big_net,smooth:true,lineStyle:{color:'#38bdf8',width:1},symbol:'none'},
+    ]
+  });
+
+  // 累计净流入面积图
+  const c2=echarts.init(document.getElementById('chart_cum'));
+  c2.setOption({
+    tooltip:{trigger:'axis',formatter:function(p){const v=p[0].value;return p[0].axisValue+'<br/>累计 '+(v/1e4).toFixed(2)+'亿'}},
+    grid:{left:70,right:30,top:16,bottom:40},
+    xAxis:{type:'category',data:d.dates,axisLabel:{color:'#94a3b8',rotate:45}},
+    yAxis:{type:'value',axisLabel:{color:'#94a3b8',formatter:function(v){return (v/1e4).toFixed(1)+'亿'}},splitLine:{lineStyle:{color:'#1e293b'}}},
+    series:[{name:'累计主力净额',type:'line',data:d.cumulative_net,smooth:true,lineStyle:{color:'#38bdf8',width:2},areaStyle:{color:'rgba(56,189,248,0.15)'},symbol:'none'}]
+  });
+
+  // 明细表
+  document.getElementById('tbl').innerHTML=d.dates.map((dt,i)=>{
+    const idx=d.dates.length-1-i;
+    const m=d.main_net[idx], b=d.big_net[idx], s=d.super_net[idx];
+    return `<tr>
+      <td>${dt}</td><td style=color:${m>=0?'var(--red)':'var(--green)'}>${(m/1e4).toFixed(0)}</td>
+      <td>${(s/1e4).toFixed(0)}</td><td>${(b/1e4).toFixed(0)}</td>
+      <td class=muted>${d.counts ? d.counts[idx] : '--'}</td>
+      <td>${m>=0?'🔴 流入':'🟢 流出'}</td>
+    </tr>`;
+  }).reverse().join('');
+})();
+
+// ========== 行业板块资金流趋势（近 30 日折线图） ==========
+(async()=>{
+  const r=await fetch('/api/money-flow/sector/trend'); const d=await r.json();
+  if(d.error){console.error(d.error);return;}
+
+  const c3=echarts.init(document.getElementById('chart_sector'));
+  c3.setOption({
+    tooltip:{trigger:'axis',
+      formatter:function(p){return p.map(x=>x.marker+' '+x.seriesName+': '+(x.value/1e4).toFixed(2)+'亿').join('<br/>')}},
+    legend:{type:'scroll',bottom:0,textStyle:{color:'#94a3b8',fontSize:10},pageTextStyle:{color:'#94a3b8'}},
+    grid:{left:70,right:30,top:16,bottom:50},
+    xAxis:{type:'category',data:d.dates,axisLabel:{color:'#94a3b8',rotate:45,fontSize:10}},
+    yAxis:{type:'value',axisLabel:{color:'#94a3b8',formatter:function(v){return (v/1e4).toFixed(1)+'亿'}},splitLine:{lineStyle:{color:'#1e293b'}}},
+    series:d.series.map(s=>({name:s.name,type:'line',data:s.data,smooth:true,lineStyle:{color:s.color,width:2},symbol:'none'}))
+  });
+  window.addEventListener('resize',()=>c3.resize());
+
+  // 行业明细表
+  document.getElementById('sec_date').textContent=d.dates[d.dates.length-1];
+  document.getElementById('sector_tbl').innerHTML=d.series.map((s,i)=>{
+    const clr=v=>v>=0?'color:var(--red)':'color:var(--green)';
+    const last = s.data[s.data.length-1];
+    const sum = s.data.reduce((a,b)=>a+b,0);
+    return '<tr style=\"border-bottom:1px solid #1e293b\">'
+      +'<td class=muted>'+(i+1)+'</td><td>'+s.name+'</td>'
+      +'<td style=\"'+clr(last)+'\">'+(last/1e4).toFixed(2)+'亿</td>'
+      +'<td style=\"'+clr(sum)+'\">'+(sum/1e4).toFixed(2)+'亿</td>'
+      +'</tr>';
+  }).join('');
+})();
+
+// ========== 概念板块资金流趋势（近 30 日 Top 10 折线图） ==========
+(async()=>{
+  const r=await fetch('/api/money-flow/concept/trend'); const d=await r.json();
+  if(d.error){console.error(d.error);return;}
+
+  const c5=echarts.init(document.getElementById('chart_concept'));
+  c5.setOption({
+    tooltip:{trigger:'axis',
+      formatter:function(p){return p.map(x=>x.marker+' '+x.seriesName+': '+(x.value/1e4).toFixed(2)+'亿').join('<br/>')}},
+    legend:{type:'scroll',bottom:0,textStyle:{color:'#94a3b8',fontSize:10},pageTextStyle:{color:'#94a3b8'}},
+    grid:{left:70,right:30,top:16,bottom:50},
+    xAxis:{type:'category',data:d.dates,axisLabel:{color:'#94a3b8',rotate:45,fontSize:10}},
+    yAxis:{type:'value',axisLabel:{color:'#94a3b8',formatter:function(v){return (v/1e4).toFixed(1)+'亿'}},splitLine:{lineStyle:{color:'#1e293b'}}},
+    series:d.series.map(s=>({name:s.name,type:'line',data:s.data,smooth:true,lineStyle:{color:s.color,width:2},symbol:'none'}))
+  });
+  window.addEventListener('resize',()=>c5.resize());
+
+  // 概念板块明细表
+  document.getElementById('con_date').textContent=d.dates[d.dates.length-1];
+  document.getElementById('concept_tbl').innerHTML=d.series.map((s,i)=>{
+    const clr=v=>v>=0?'color:var(--red)':'color:var(--green)';
+    const last = s.data[s.data.length-1];
+    const sum = s.data.reduce((a,b)=>a+b,0);
+    return '<tr style="border-bottom:1px solid #1e293b">'
+      +'<td class=muted>'+(i+1)+'</td><td>'+s.name+'</td>'
+      +'<td style="'+clr(last)+'">'+(last/1e4).toFixed(2)+'亿</td>'
+      +'<td style="'+clr(sum)+'">'+(sum/1e4).toFixed(2)+'亿</td>'
+      +'</tr>';
+  }).join('');
+})();
+
+// ========== 个股主力资金流 Top 20 ==========
+(async()=>{
+  const r=await fetch('/api/money-flow'); const d=await r.json();
+  if(d.error)return;
+
+  // 取最新一天的日期
+  const latestDate = d.dates[d.dates.length-1];
+
+  // 单独请求个股资金流排名 (from stock_money_flow)
+  const r2=await fetch('/api/money-flow/stock?date=' + latestDate);
+  const d2=await r2.json();
+  if(d2.error){console.error(d2.error);return;}
+
+  document.getElementById('stock_date').textContent=d2.date || latestDate;
+
+  const top20 = d2.stocks ? d2.stocks.slice(0,20) : [];
+  const c4=echarts.init(document.getElementById('chart_stock'));
+  c4.setOption({
+    tooltip:{trigger:'axis',axisPointer:{type:'shadow'},
+      formatter:function(p){const v=p[0].value;return p[0].name+'<br/>主力净额: '+v.toFixed(2)+'亿'}},
+    grid:{left:110,right:50,top:12,bottom:12},
+    xAxis:{type:'value',axisLabel:{color:'#94a3b8',formatter:function(v){return v.toFixed(1)+'亿'}},splitLine:{lineStyle:{color:'#1e293b'}}},
+    yAxis:{type:'category',data:top20.map(s=>s.name+' '+s.code),axisLabel:{color:'#94a3b8',fontSize:10},inverse:true},
+    series:[{
+      type:'bar',data:top20.map(s=>({value:s.main_inflow/1e4,itemStyle:{color:s.main_inflow>=0?'#f87171':'#34d399'}})),
+      barMaxWidth:20,label:{show:true,position:'right',color:'#94a3b8',fontSize:9,formatter:function(p){return p.value.toFixed(2)+'亿'}}
+    }]
+  });
+  window.addEventListener('resize',()=>c4.resize());
+
+  document.getElementById('stock_tbl').innerHTML=(d2.stocks||[]).map((s,i)=>{
+    const clr=v=>v>=0?'color:var(--red)':'color:var(--green)';
+    return '<tr style=\"border-bottom:1px solid #1e293b\">'
+      +'<td class=muted>'+(i+1)+'</td><td><a href="/stock/'+s.code+'" target="_blank">'+s.code+'</a></td><td>'+s.name+'</td>'
+      +'<td style=\"'+clr(s.main_inflow)+'\">'+(s.main_inflow/1e4).toFixed(2)+'亿</td>'
+      +'<td style=\"'+(s.pct_chg>=0?'color:var(--red)':'color:var(--green)')+'\">'+(s.pct_chg>=0?'+':'')+s.pct_chg.toFixed(2)+'%</td>'
+      +'</tr>';
+  }).join('');
+})();
+</script>
+</body>
+</html>

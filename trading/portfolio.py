@@ -21,17 +21,23 @@ from datetime import datetime, date
 import duckdb
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DB_PATH = os.path.join(PROJECT_ROOT, 'data', 'Astock3.duckdb')
-INIT_CASH = 500000.0
-FEE_RATE = 0.0005  # 买入手续费 0.05%
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+from utils.db import connect_write
+from config.settings import get_trading_config
+
+DB_PATH = os.path.join(PROJECT_ROOT, 'data_store', 'market.duckdb')
+INIT_CASH = get_trading_config().initial_cash
+FEE_RATE = get_trading_config().fee_rate  # 买入手续费
 
 
-def is_trading_day(check_date: date) -> bool:
-    """判断是否为交易日（检查数据库中是否有当日价格数据）"""
+def _has_bar_data(check_date: date) -> bool:
+    """检查数据库中是否有当日价格数据（行情是否已到位）"""
     conn = duckdb.connect(DB_PATH, read_only=True)
     try:
         result = conn.execute(
-            "SELECT COUNT(*) FROM dwd_daily_price WHERE trade_date = ?",
+            "SELECT COUNT(*) FROM daily_bar WHERE trade_date = ?",
             [check_date.strftime('%Y-%m-%d')]
         ).fetchone()
         return result is not None and result[0] > 0
@@ -39,12 +45,22 @@ def is_trading_day(check_date: date) -> bool:
         conn.close()
 
 
+def is_trading_day(check_date: date) -> bool:
+    """判断是否为交易日（优先查 trade_calendar 日历，PG 不可用时退回 daily_bar 数据检查）"""
+    try:
+        from data.api import get_trade_days
+        return len(get_trade_days(check_date, check_date)) > 0
+    except Exception:
+        # 日历不可用时退回旧逻辑：有当日行情数据即视为交易日
+        return _has_bar_data(check_date)
+
+
 def get_latest_trading_day(before_date: date) -> date:
     """获取指定日期之前最近的交易日"""
     conn = duckdb.connect(DB_PATH, read_only=True)
     try:
         result = conn.execute(
-            "SELECT MAX(trade_date) FROM dwd_daily_price WHERE trade_date < ?",
+            "SELECT MAX(trade_date) FROM daily_bar WHERE trade_date < ?",
             [before_date.strftime('%Y-%m-%d')]
         ).fetchone()
         if result and result[0]:
@@ -62,21 +78,13 @@ def get_target_date(target: date) -> tuple:
     获取实际应该更新的日期
     Returns: (actual_date, is_holiday)
     """
-    today = target
-
-    # 周末直接找最近交易日
-    if today.weekday() >= 5:
-        latest = get_latest_trading_day(today)
-        if latest != today:
+    # 非交易日（周末/节假日）→ 沿用最近交易日
+    if not is_trading_day(target):
+        latest = get_latest_trading_day(target)
+        if latest != target:
             return latest, True
 
-    # 检查是否是交易日
-    if not is_trading_day(today):
-        latest = get_latest_trading_day(today)
-        if latest != today:
-            return latest, True
-
-    return today, False
+    return target, False
 
 
 def add_market_suffix(code: str) -> str:
@@ -92,7 +100,7 @@ def add_market_suffix(code: str) -> str:
 
 def update_portfolio_daily(target_date: date, force: bool = False):
     """插入/更新 portfolio_daily 和 portfolio_daily_strategy"""
-    conn = duckdb.connect(DB_PATH, read_only=False)
+    conn = connect_write(DB_PATH)
 
     try:
         date_str = target_date.strftime('%Y-%m-%d')
@@ -125,7 +133,7 @@ def update_portfolio_daily(target_date: date, force: bool = False):
             total_cost += cost
 
             price_row = conn.execute(
-                "SELECT close FROM dwd_daily_price WHERE ts_code = ? AND trade_date = ?",
+                "SELECT close FROM daily_bar WHERE ts_code = ? AND trade_date = ?",
                 [add_market_suffix(code), date_str]
             ).fetchone()
 
@@ -166,11 +174,11 @@ def update_portfolio_daily(target_date: date, force: bool = False):
         conn.execute("""
             INSERT INTO portfolio_daily
             (id, date, init_cash, position_cost, position_value, position_pnl,
-             closed_pnl, total_pnl, available_cash, position_ratio, notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             closed_pnl, total_pnl, available_cash, position_ratio, total_value, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, [next_id, date_str, INIT_CASH, total_cost, total_value,
               position_pnl, closed_pnl, total_pnl, available_cash,
-              position_ratio, notes])
+              position_ratio, total_value_account, notes])
 
         print("✅ portfolio_daily %s: 市值=%.0f 仓位=%.1f%% 总盈亏=%.0f" % (
             date_str, total_value, position_ratio, total_pnl))
@@ -186,7 +194,7 @@ def update_portfolio_daily(target_date: date, force: bool = False):
             strategies[strategy]['count'] += 1
 
             price_row = conn.execute(
-                "SELECT close FROM dwd_daily_price WHERE ts_code = ? AND trade_date = ?",
+                "SELECT close FROM daily_bar WHERE ts_code = ? AND trade_date = ?",
                 [add_market_suffix(code), date_str]
             ).fetchone()
             if price_row and price_row[0]:
@@ -258,9 +266,37 @@ def main():
     print("实际更新: %s" % actual + (" (节假日/周末沿用)" if is_holiday else ""))
     print("=" * 50)
 
+    if not is_holiday and not _has_bar_data(actual):
+        raise RuntimeError(f"{actual} 是交易日但 daily_bar 尚无当日数据（行情未到位），拒绝写入净值")
+
     update_portfolio_daily(actual, force=args.fix)
     print()
     print("✅ 完成 %s 的持仓快照更新" % actual)
+
+
+def run_job(**kwargs: object) -> dict:
+    """Scheduler entry point — update portfolio daily snapshot.
+
+    Called by APScheduler via run_scheduler.py TARGETS registry.
+    Accepts an optional ``date`` kwarg (YYYYMMDD string).
+    """
+    target = kwargs.get("date")
+    if target:
+        target_date = datetime.strptime(str(target), "%Y%m%d").date()
+    else:
+        target_date = date.today()
+
+    actual, is_holiday = get_target_date(target_date)
+    if not is_holiday and not _has_bar_data(actual):
+        raise RuntimeError(f"{actual} 是交易日但 daily_bar 尚无当日数据（行情未到位），拒绝写入净值")
+
+    updated = update_portfolio_daily(actual, force=False)
+    return {
+        "target_date": str(target_date),
+        "actual_date": str(actual),
+        "is_holiday": is_holiday,
+        "updated": updated,
+    }
 
 
 if __name__ == '__main__':

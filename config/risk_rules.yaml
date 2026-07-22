@@ -1,0 +1,25 @@
+# Stop-loss
+stop_loss:
+  fixed_pct: 0.05
+  trailing: true
+  trailing_pct: 0.03
+
+# Take-profit
+take_profit:
+  fixed_pct: 0.15
+
+# Position sizing
+position:
+  max_single_pct: 0.30
+  max_total_positions: 10
+  max_industry_concentration: 0.40
+
+# Portfolio-level
+portfolio:
+  max_drawdown: 0.20
+  daily_loss_limit: 0.05
+
+# VaR
+var:
+  confidence: 0.95
+  horizon_days: 1

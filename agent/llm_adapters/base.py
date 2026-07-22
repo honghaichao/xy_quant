@@ -9,6 +9,13 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from abc import ABC
 
+# 确保 .env 已加载
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
 from langchain_core.outputs import ChatResult, ChatGeneration

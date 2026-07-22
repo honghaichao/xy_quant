@@ -1518,10 +1518,99 @@ def api_money_flow_stock():
         return jsonify({"error": str(exc)}), 500
 
 
+
 @app.route('/live')
 def live_page():
     """实盘组合跟踪"""
     return render_template('live.html')
+
+
+@app.route('/api/intraday/summary')
+def api_intraday_summary():
+    """盘中快照摘要 — 从 DuckDB 三表查询最新 snapshot。"""
+    db = get_db()
+    try:
+        # Latest fetch_time from spot
+        latest = db.execute(
+            "SELECT MAX(fetch_time) FROM intraday_spot"
+        ).fetchone()[0]
+        if latest is None:
+            return jsonify({"fetch_time": None, "message": "无盘中数据"})
+
+        latest_dt = str(latest)
+
+        # Market breadth from spot
+        breadth = db.execute("""
+            SELECT
+                COUNT(CASE WHEN pct_chg > 0 THEN 1 END) AS up,
+                COUNT(CASE WHEN pct_chg < 0 THEN 1 END) AS down,
+                COUNT(CASE WHEN pct_chg = 0 OR pct_chg IS NULL THEN 1 END) AS flat
+            FROM intraday_spot WHERE fetch_time = ?
+        """, (latest,)).fetchone()
+
+        # Top gainers / losers
+        top_gainers = db.execute("""
+            SELECT ts_code, name, pct_chg, close
+            FROM intraday_spot WHERE fetch_time = ?
+            ORDER BY pct_chg DESC NULLS LAST LIMIT 10
+        """, (latest,)).fetchall()
+        top_losers = db.execute("""
+            SELECT ts_code, name, pct_chg, close
+            FROM intraday_spot WHERE fetch_time = ?
+            ORDER BY pct_chg ASC NULLS LAST LIMIT 10
+        """, (latest,)).fetchall()
+
+        # Stock fund flow top inflow / outflow
+        top_inflow = db.execute("""
+            SELECT ts_code, name, main_inflow, main_inflow_pct, close
+            FROM intraday_fund_flow ORDER BY fetch_time DESC, main_inflow DESC NULLS LAST LIMIT 10
+        """).fetchall()
+
+        top_outflow = db.execute("""
+            SELECT ts_code, name, main_inflow, main_inflow_pct, close
+            FROM intraday_fund_flow ORDER BY fetch_time DESC, main_inflow ASC NULLS LAST LIMIT 10
+        """).fetchall()
+
+        # Sector flow
+        sector_flow = db.execute("""
+            SELECT sector_name, sector_type, pct_chg, main_inflow, main_inflow_pct
+            FROM intraday_sector_flow
+            ORDER BY fetch_time DESC, main_inflow DESC NULLS LAST LIMIT 20
+        """).fetchall()
+
+        # Shanghai index
+        sh_row = db.execute(
+            "SELECT close, pct_chg FROM intraday_spot WHERE ts_code='000001.SH' ORDER BY fetch_time DESC LIMIT 1"
+        ).fetchone()
+
+        return jsonify({
+            "fetch_time": latest_dt,
+            "market_breadth": {
+                "up": breadth[0] or 0, "down": breadth[1] or 0, "flat": breadth[2] or 0,
+            },
+            "shanghai_index": {
+                "close": float(sh_row[0]) if sh_row and sh_row[0] else None,
+                "pct_chg": float(sh_row[1]) if sh_row and sh_row[1] else None,
+            } if sh_row else None,
+            "top_gainers": [{"code": r[0], "name": r[1], "pct_chg": float(r[2]) if r[2] else 0,
+                             "close": float(r[3]) if r[3] else 0} for r in top_gainers],
+            "top_losers": [{"code": r[0], "name": r[1], "pct_chg": float(r[2]) if r[2] else 0,
+                            "close": float(r[3]) if r[3] else 0} for r in top_losers],
+            "top_inflow": [{"code": r[0], "name": r[1],
+                            "main_inflow": float(r[2]) if r[2] else 0,
+                            "main_inflow_pct": float(r[3]) if r[3] else 0,
+                            "close": float(r[4]) if r[4] else 0} for r in top_inflow],
+            "top_outflow": [{"code": r[0], "name": r[1],
+                             "main_inflow": float(r[2]) if r[2] else 0,
+                             "main_inflow_pct": float(r[3]) if r[3] else 0,
+                             "close": float(r[4]) if r[4] else 0} for r in top_outflow],
+            "sector_flow": [{"name": r[0], "type": r[1],
+                             "pct_chg": float(r[2]) if r[2] else 0,
+                             "main_inflow": float(r[3]) if r[3] else 0,
+                             "main_inflow_pct": float(r[4]) if r[4] else 0} for r in sector_flow],
+        })
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
 
 
 @app.route('/api/live/summary')

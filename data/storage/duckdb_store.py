@@ -114,12 +114,136 @@ DUCKDB_SCHEMA_SQL: Final[tuple[str, ...]] = (
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_limit_list_date ON limit_list(trade_date)",
+    # ── Intraday tables ────────────────────────────────────────────
+    """CREATE TABLE IF NOT EXISTS intraday_spot (
+        fetch_time   TIMESTAMP NOT NULL,
+        ts_code      VARCHAR NOT NULL,
+        name         VARCHAR,
+        close        DOUBLE,
+        pct_chg      DOUBLE,
+        volume       DOUBLE,
+        amount       DOUBLE,
+        turnover_rate DOUBLE,
+        pe           DOUBLE,
+        pb           DOUBLE,
+        high         DOUBLE,
+        low          DOUBLE,
+        open         DOUBLE,
+        pre_close    DOUBLE,
+        PRIMARY KEY (ts_code, fetch_time)
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_intraday_spot_time ON intraday_spot(fetch_time)",
+    """CREATE TABLE IF NOT EXISTS intraday_fund_flow (
+        fetch_time   TIMESTAMP NOT NULL,
+        ts_code      VARCHAR NOT NULL,
+        name         VARCHAR,
+        close        DOUBLE,
+        pct_chg      DOUBLE,
+        main_inflow  DOUBLE,
+        main_inflow_pct DOUBLE,
+        super_inflow DOUBLE,
+        big_inflow   DOUBLE,
+        mid_inflow   DOUBLE,
+        small_inflow DOUBLE,
+        PRIMARY KEY (ts_code, fetch_time)
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_intraday_flow_time ON intraday_fund_flow(fetch_time)",
+    """CREATE TABLE IF NOT EXISTS intraday_sector_flow (
+        fetch_time    TIMESTAMP NOT NULL,
+        sector_name   VARCHAR NOT NULL,
+        sector_type   VARCHAR NOT NULL,
+        trade_date    DATE NOT NULL,
+        pct_chg       DOUBLE,
+        main_inflow   DOUBLE,
+        main_inflow_pct DOUBLE,
+        super_inflow  DOUBLE,
+        big_inflow    DOUBLE,
+        mid_inflow    DOUBLE,
+        small_inflow  DOUBLE,
+        top_stock     VARCHAR,
+        sector_code   VARCHAR,
+        PRIMARY KEY (sector_name, sector_type, trade_date, fetch_time)
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_intraday_sector_time ON intraday_sector_flow(fetch_time)",
+    # ── Factor tables ────────────────────────────────────────────────
+    """CREATE TABLE IF NOT EXISTS factor_data (
+        date             DATE    NOT NULL,
+        code             VARCHAR NOT NULL,
+        -- 估值因子
+        pe_ttm           DOUBLE,
+        pb               DOUBLE,
+        ps_ttm           DOUBLE,
+        pcf_ttm          DOUBLE,
+        dividend_yield   DOUBLE,
+        -- 质量因子
+        roe              DOUBLE,
+        roa              DOUBLE,
+        gross_margin     DOUBLE,
+        net_margin       DOUBLE,
+        debt_to_asset    DOUBLE,
+        -- 成长因子
+        revenue_growth_yoy  DOUBLE,
+        profit_growth_yoy   DOUBLE,
+        -- 技术因子
+        macd_dif         DOUBLE,
+        macd_dea         DOUBLE,
+        macd_histogram   DOUBLE,
+        kdj_k            DOUBLE,
+        kdj_d            DOUBLE,
+        kdj_j            DOUBLE,
+        rsi_6            DOUBLE,
+        rsi_12           DOUBLE,
+        rsi_24           DOUBLE,
+        boll_upper       DOUBLE,
+        boll_mid         DOUBLE,
+        boll_lower       DOUBLE,
+        ma_5             DOUBLE,
+        ma_10            DOUBLE,
+        ma_20            DOUBLE,
+        ma_60            DOUBLE,
+        volatility_20d   DOUBLE,
+        turnover_20d     DOUBLE,
+        -- 情绪因子
+        volume_ratio     DOUBLE,
+        price_momentum_20d  DOUBLE,
+        price_momentum_60d  DOUBLE,
+        updated_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (date, code)
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_factor_data_date ON factor_data(date)",
+    "CREATE INDEX IF NOT EXISTS idx_factor_data_code ON factor_data(code)",
+    """CREATE TABLE IF NOT EXISTS factor_ic (
+        date               DATE    NOT NULL,
+        factor_name        VARCHAR NOT NULL,
+        ic                 DOUBLE,
+        ic_rank            DOUBLE,
+        ir                 DOUBLE,
+        ic_positive_ratio  DOUBLE,
+        updated_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (date, factor_name)
+    )""",
+    """CREATE TABLE IF NOT EXISTS factor_return (
+        date                DATE    NOT NULL,
+        factor_name         VARCHAR NOT NULL,
+        long_return         DOUBLE,
+        short_return        DOUBLE,
+        long_short_return   DOUBLE,
+        quantile_returns    JSON,
+        updated_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (date, factor_name)
+    )""",
 )
 DUCKDB_MARKET_TABLES: Final[tuple[str, ...]] = (
     "adj_factor",
     "daily_bar",
     "daily_basic",
+    "factor_data",
+    "factor_ic",
+    "factor_return",
     "index_daily",
+    "intraday_fund_flow",
+    "intraday_sector_flow",
+    "intraday_spot",
     "limit_list",
     "minute_bar",
 )
@@ -141,6 +265,9 @@ _DUCKDB_DATE_COLUMNS: Final[dict[str, str]] = {
     "adj_factor": "trade_date",
     "daily_bar": "trade_date",
     "daily_basic": "trade_date",
+    "factor_data": "date",
+    "factor_ic": "date",
+    "factor_return": "date",
     "index_daily": "trade_date",
     "limit_list": "trade_date",
     "minute_bar": "datetime",
@@ -150,12 +277,13 @@ _DUCKDB_DATE_COLUMNS: Final[dict[str, str]] = {
 class DuckDBMarketStore(IMarketStore):
     """DuckDB-backed implementation of the market store interface."""
 
-    def __init__(self, db_path: str | None = None) -> None:
+    def __init__(self, db_path: str | None = None, *, read_only: bool = False) -> None:
         """Initialize the DuckDB market store."""
         self.db_path = db_path or settings.duckdb_path
         path = Path(self.db_path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        self.connection: DuckDBPyConnection = duckdb.connect(str(path))
+        self.connection: DuckDBPyConnection = duckdb.connect(str(path), read_only=read_only)
+        self.read_only = read_only
 
     def init_schema(self) -> None:
         """Create all market tables and indexes."""
@@ -337,10 +465,16 @@ class DuckDBMarketStore(IMarketStore):
 
     def query(self, sql: str, params: Mapping[str, Any] | None = None) -> pd.DataFrame:
         """Execute a query and return a DataFrame."""
-        cursor = self.connection.execute(sql, params)
-        rows = cursor.fetchall()
-        columns = [description[0] for description in cursor.description]
-        frame = pd.DataFrame(rows, columns=columns)
+        # Use DuckDB native .df() for direct zero-copy conversion,
+        # skipping the O(n*m) per-column type inference path.
+        try:
+            frame = self.connection.execute(sql, params).df()
+        except (AttributeError, TypeError):
+            # Fallback for very old DuckDB versions
+            cursor = self.connection.execute(sql, params)
+            rows = cursor.fetchall()
+            columns = [description[0] for description in cursor.description]
+            frame = pd.DataFrame(rows, columns=columns)
         return _normalize_duckdb_frame(frame)
 
     def execute(self, sql: str, params: Mapping[str, Any] | None = None) -> int:
@@ -429,9 +563,15 @@ def _normalize_duckdb_frame(frame: pd.DataFrame) -> pd.DataFrame:
         series = normalized[column]
         if pd.api.types.is_datetime64_any_dtype(series):
             continue
-        non_null_values = series.dropna()
-        if non_null_values.empty:
-            continue
-        if non_null_values.map(lambda value: isinstance(value, date)).all():
-            normalized[column] = pd.to_datetime(series)
+        if series.dtype == 'object':
+            non_null = series.dropna()
+            if non_null.empty:
+                continue
+            # Vectorized check: try to parse as date; if all non-null match, convert
+            try:
+                as_dt = pd.to_datetime(non_null, errors='coerce')
+                if as_dt.notna().all():
+                    normalized[column] = pd.to_datetime(series)
+            except Exception:
+                pass
     return normalized

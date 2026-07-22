@@ -111,3 +111,25 @@ def task_status(task_id: str) -> tuple:
     if task_id not in update_tasks:
         return jsonify({"error": "Task not found"}), 404
     return jsonify(update_tasks[task_id])
+
+
+@data_update_bp.route("/log", methods=["GET"])
+def task_log() -> tuple:
+    """返回最近任务的日志行。"""
+    lines = request.args.get("lines", 50, type=int)
+    # 聚合最近一次完成的 stdout
+    recent = sorted(
+        [(t["finished_at"], t.get("stdout", "") or t.get("error", ""))
+         for t in update_tasks.values()
+         if t.get("finished_at")],
+        key=lambda x: x[0], reverse=True,
+    )
+    output = ""
+    for _ts, txt in recent[:1]:
+        output = txt
+    if not output and update_tasks:
+        # 检查运行中的
+        first = next(iter(update_tasks.values()))
+        output = first.get("stdout", "") or f"任务 {first.get('status','unknown')} — 输出尚未可用"
+    log_lines = output.strip().splitlines()[-lines:]
+    return jsonify({"lines": len(log_lines), "text": "\n".join(log_lines)})

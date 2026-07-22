@@ -9,9 +9,9 @@ import pandas as pd
 import numpy as np
 import io
 import threading
+import json
 
 
-from backtest.engine import BacktestEngine
 from strategies.registry import Registry
 import duckdb
 
@@ -27,6 +27,124 @@ DB_PATH = os.path.abspath(settings.duckdb_path)
 def get_db():
     """获取数据库连接"""
     return DatabaseManager(str(DB_PATH))
+
+
+class DatabaseManager:
+    """Lightweight DuckDB facade."""
+
+    def __init__(self, path=None):
+        self._path = path or DB_PATH
+
+    @property
+    def conn(self):
+        import duckdb
+        return duckdb.connect(self._path, read_only=True)
+
+    def _query(self, sql, params=None, fetch="all"):
+        c = self.conn
+        try:
+            cur = c.execute(sql, params or [])
+            if fetch == "one":
+                return cur.fetchone()
+            elif fetch == "df":
+                return cur.fetchdf()
+            return cur.fetchall()
+        finally:
+            c.close()
+
+    def _write(self, sql, params=None):
+        import duckdb
+        c = duckdb.connect(self._path, read_only=False)
+        try:
+            c.execute(sql, params or [])
+        finally:
+            c.close()
+
+    def list_strategies(self, status="active"):
+        rows = self._query(
+            "SELECT id, name, display_name, class_path, source_file, description, "
+            "version, author, status, strategy_type, threshold_required, min_data_days "
+            "FROM strategy_registry WHERE status = ? ORDER BY name", [status])
+        keys = ["id", "name", "display_name", "class_path", "source_file", "description",
+                "version", "author", "status", "strategy_type", "threshold_required", "min_data_days"]
+        return [dict(zip(keys, r)) for r in rows]
+
+    def get_strategy(self, name):
+        rows = self._query(
+            "SELECT id, name, display_name, class_path, source_file, description, "
+            "version, author, status, strategy_type, threshold_required, min_data_days "
+            "FROM strategy_registry WHERE name = ?", [name])
+        if not rows:
+            return None
+        keys = ["id", "name", "display_name", "class_path", "source_file", "description",
+                "version", "author", "status", "strategy_type", "threshold_required", "min_data_days"]
+        return dict(zip(keys, rows[0]))
+
+    def save_strategy(self, data):
+        self._write(
+            "INSERT OR REPLACE INTO strategy_registry "
+            "(id, name, display_name, class_path, source_file, description, version, "
+            "author, status, strategy_type, threshold_required, min_data_days) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [data.get(k) for k in ["id", "name", "display_name", "class_path", "source_file",
+                                    "description", "version", "author", "status", "strategy_type",
+                                    "threshold_required", "min_data_days"]])
+    def update_strategy_status(self, name, status):
+        self._write("UPDATE strategy_registry SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE name = ?", [status, name])
+        return True
+
+    def get_backtest_result(self, run_id):
+        run = self._query(
+            "SELECT run_id, strategy_name, strategy_params, start_date, end_date, "
+            "universe, initial_capital, status FROM backtest_run WHERE run_id = ?",
+            [run_id], fetch="one")
+        if not run:
+            return None
+        perf = self._query(
+            "SELECT total_return, annual_return, max_drawdown, sharpe_ratio, "
+            "win_rate, total_trades, avg_holding_days FROM backtest_performance WHERE run_id = ?",
+            [run_id], fetch="one")
+        trades = self._query(
+            "SELECT id, datetime, code, action, price, size, amount, commission "
+            "FROM backtest_trades WHERE run_id = ? ORDER BY id", [run_id])
+        pnl = self._query(
+            "SELECT date, pnl, pnl_pct, total_value FROM backtest_daily_pnl "
+            "WHERE run_id = ? ORDER BY date", [run_id])
+        result = dict(zip(
+            ["run_id", "strategy_name", "strategy_params", "start_date", "end_date",
+             "universe", "initial_capital", "status"], run))
+        if perf:
+            result["performance"] = dict(zip(
+                ["total_return", "annual_return", "max_drawdown", "sharpe_ratio",
+                 "win_rate", "total_trades", "avg_holding_days"], perf))
+        result["trades"] = [
+            dict(zip(["id", "datetime", "code", "action", "price", "size", "amount", "commission"], t))
+            for t in trades]
+        result["daily_pnl"] = [
+            dict(zip(["date", "pnl", "pnl_pct", "total_value"], p)) for p in pnl]
+        return result
+
+    def get_batch_backtest_results(self, run_id):
+        result = self.get_backtest_result(run_id)
+        return [result] if result else []
+
+    def get_batch_daily_pnl(self, run_id):
+        rows = self._query(
+            "SELECT date, pnl, pnl_pct, total_value FROM backtest_daily_pnl "
+            "WHERE run_id = ? ORDER BY date", [run_id])
+        return [dict(zip(["date", "pnl", "pnl_pct", "total_value"], r)) for r in rows]
+
+    def get_batch_param_results(self, run_id):
+        return []
+
+    def save_batch_param_result(self, task_id, result):
+        pass
+
+    def save_batch_backtest_result(self, task_id, result):
+        pass
+
+    def save_batch_daily_pnl(self, task_id, records):
+        pass
 
 
 def clean_df_for_json(df):
@@ -163,95 +281,44 @@ def _load_strategy_files():
 
 @backtest_bp.route('/run', methods=['POST'])
 def run_backtest():
-    """运行回测
-
-    POST /api/backtest/run
-    Body: {
-        "strategy_name": "天宫B1策略v2.1",
-        "start_date": "20240101",
-        "end_date": "20240601",
-        "stock_list": ["000001", "000002"],  // optional
-        "initial_capital": 100000  // optional
-    }
-
-    Returns: {
-        "run_id": "abc123",
-        "status": "completed",
-        "metrics": {...}
-    }
-    """
+    """Unified backtest runner."""
+    from datetime import datetime as dt
     data = request.get_json()
-
     if not data:
-        return jsonify({'error': '请求体不能为空'}), 400
-
-    strategy_name = data.get('strategy_name')
-    start_date = data.get('start_date')
-    end_date = data.get('end_date')
-    stock_list = data.get('stock_list')
-    initial_capital = data.get('initial_capital', 100000.0)
-
-    if not strategy_name:
-        return jsonify({'error': '缺少strategy_name参数'}), 400
-    if not start_date:
-        return jsonify({'error': '缺少start_date参数'}), 400
-    if not end_date:
-        return jsonify({'error': '缺少end_date参数'}), 400
-
+        return jsonify({'error': 'empty body'}), 400
+    sk = data.get('strategy_key', data.get('strategy_name', 'caimadama'))
+    ss = data.get('start_date', data.get('start', ''))
+    es = data.get('end_date', data.get('end', ''))
+    tn = int(data.get('top_n', 5))
+    ic = float(data.get('initial_cash', data.get('initial_capital', 500_000)))
+    if not ss or not es:
+        return jsonify({'error': 'missing dates'}), 400
     try:
-        engine_params = {
-            'initial_cash': initial_capital,
-            'start_date': start_date,
-            'end_date': end_date,
-        }
-        if stock_list:
-            engine_params['stock_list'] = stock_list
-
-        engine = BacktestEngine(**engine_params)
-
-        registry = Registry()
-        strategy_class = registry.get(strategy_name)
-
-        if strategy_class is None:
-            return jsonify({'error': f'策略 {strategy_name} 未找到'}), 404
-
-        engine.add_strategy(strategy_class)
-
-        if not stock_list:
-            db = get_db()
-            stock_df = db.conn.execute("""
-                SELECT DISTINCT symbol FROM dwd_stock_info
-                WHERE delist_date IS NULL
-            """).fetchdf()
-            stock_list = stock_df['symbol'].tolist() if not stock_df.empty else []
-
-        for stock_code in stock_list:
-            try:
-                engine.add_data_from_db(stock_code)
-            except Exception as e:
-                print(f"添加股票 {stock_code} 数据失败: {e}")
-                continue
-
-        result = engine.run(strategy_name=strategy_name, save_results=True)
-
-        run_id = engine.get_run_id()
-
-        return jsonify({
-            'run_id': run_id,
-            'status': 'completed',
-            'metrics': {
-                'total_return': result.get('total_return', 0),
-                'annual_return': result.get('metrics', {}).get('annualized_return', 0),
-                'sharpe_ratio': result.get('metrics', {}).get('sharpe_ratio', 0),
-                'max_drawdown': result.get('metrics', {}).get('max_drawdown', 0),
-                'win_rate': result.get('metrics', {}).get('win_rate', 0),
-                'total_trades': result.get('metrics', {}).get('total_trades', 0),
-            }
-        })
-
+        sd = dt.strptime(ss.replace('-', ''), '%Y%m%d').date()
+        ed = dt.strptime(es.replace('-', ''), '%Y%m%d').date()
+    except ValueError:
+        return jsonify({'error': f'bad date: {ss}/{es}'}), 400
+    nm = {'caimadama': '菜场大妈选股法', '菜场大妈选股法': 'caimadama'}
+    display = nm.get(sk, sk)
+    try:
+        from strategies.caimadama import CaiMaDamaStrategy
+        from backtest.runner import BacktestRunner
+        from backtest.reporter import generate_all_reports
+        from backtest.execution import load_benchmark
+        from pathlib import Path
+        s = CaiMaDamaStrategy(top_n=tn)
+        s.load_context_data(sd, ed)
+        r = BacktestRunner(s, start=sd, end=ed, initial_cash=ic).run()
+        if 'error' in r:
+            return jsonify({'error': r['error']}), 500
+        bm = load_benchmark('000300.SH', sd, ed)
+        d = str(Path(__file__).parents[2] / 'reports' / 'web_backtest')
+        rid = generate_all_reports(r, display, d, bm, save_db=True, strategy_params={'top_n': tn}, start_dt=sd, end_dt=ed)
+        m = r.get('metrics', {})
+        return jsonify({'run_id': rid, 'status': 'completed', 'metrics': {'total_return': m.get('total_return',0), 'sharpe_ratio': m.get('sharpe_ratio',0), 'max_drawdown': m.get('max_drawdown',0), 'win_rate': m.get('win_rate',0), 'total_trades': m.get('total_trades',0)}})
     except Exception as e:
+        import traceback; traceback.print_exc()
         return jsonify({'error': str(e)}), 500
-
 
 @backtest_bp.route('/history', methods=['GET'])
 def get_history():
@@ -279,7 +346,43 @@ def get_history():
         db = get_db()
         all_runs = []
 
-# 2. 查询批量回测结果，按batch_id分组
+        # 1. Query single backtest runs
+        try:
+            import duckdb as ddb
+            query = """
+                SELECT r.run_id, r.strategy_name, r.start_date, r.end_date,
+                       r.initial_capital, r.status, r.completed_at,
+                       p.total_return, p.sharpe_ratio, p.max_drawdown, p.total_trades
+                FROM backtest_run r
+                LEFT JOIN backtest_performance p ON r.run_id = p.run_id
+                WHERE 1=1
+            """
+            params = []
+            if strategy_name:
+                query += " AND r.strategy_name LIKE ?"
+                params.append(f"%{strategy_name}%")
+            query += " ORDER BY r.created_at DESC LIMIT 50"
+            single_df = ddb.connect(DB_PATH, read_only=True).execute(query, params).fetchdf()
+        except Exception:
+            single_df = pd.DataFrame()
+
+        for _, row in single_df.iterrows():
+            all_runs.append({
+                'run_id': row['run_id'],
+                'type': 'single',
+                'strategy_name': row['strategy_name'],
+                'start_date': str(row['start_date']) if pd.notna(row['start_date']) else None,
+                'end_date': str(row['end_date']) if pd.notna(row['end_date']) else None,
+                'initial_capital': float(row['initial_capital']) if pd.notna(row['initial_capital']) else None,
+                'status': str(row['status']),
+                'completed_at': str(row['completed_at']) if pd.notna(row['completed_at']) else None,
+                'total_return': float(row['total_return']) if pd.notna(row['total_return']) else None,
+                'sharpe_ratio': float(row['sharpe_ratio']) if pd.notna(row['sharpe_ratio']) else None,
+                'max_drawdown': float(row['max_drawdown']) if pd.notna(row['max_drawdown']) else None,
+                'total_trades': int(row['total_trades']) if pd.notna(row['total_trades']) else 0,
+            })
+
+        # 2. Skip batch (table doesn't exist) 查询批量回测结果，按batch_id分组
         batch_query = """
             SELECT 
                 batch_id,
@@ -290,12 +393,9 @@ def get_history():
                 AVG(CASE WHEN status = 'success' THEN sharpe_ratio ELSE NULL END) as avg_sharpe,
                 AVG(CASE WHEN status = 'success' THEN max_drawdown ELSE NULL END) as avg_max_drawdown,
                 MAX(completed_at) as completed_at
-            FROM batch_backtest_results
-            GROUP BY batch_id
-            ORDER BY completed_at DESC
-            LIMIT 50
+            FROM backtest_trades WHERE 1=0
         """
-        batch_df = db.conn.execute(batch_query).fetchdf()
+        batch_df = pd.DataFrame()
 
         for _, row in batch_df.iterrows():
             batch_id = row['batch_id']
@@ -712,10 +812,14 @@ def export_backtest(run_id):
         filename = f'backtest_{run_id}_{date_str}'
 
         if format_type == 'csv':
-            trades_df = result.get('trades')
-            if trades_df is None or trades_df.empty:
+            raw_trades = result.get('trades')
+            if raw_trades is None or (isinstance(raw_trades, list) and len(raw_trades) == 0) or (hasattr(raw_trades, 'empty') and raw_trades.empty):
                 return jsonify({'error': '没有交易记录可导出'}), 404
 
+            if isinstance(raw_trades, list):
+                trades_df = pd.DataFrame(raw_trades)
+            else:
+                trades_df = raw_trades
             csv_df = trades_df.copy()
             for col in csv_df.columns:
                 if csv_df[col].dtype == 'object' or str(csv_df[col].dtype).startswith('datetime'):
@@ -739,35 +843,47 @@ def export_backtest(run_id):
             )
 
         else:
-            trades = clean_df_for_json(result.get('trades'))
-            daily_pnl = clean_df_for_json(result.get('daily_pnl'))
+            raw_trades = result.get('trades')
+            if isinstance(raw_trades, list):
+                trades = raw_trades
+            else:
+                trades = clean_df_for_json(raw_trades)
+            raw_pnl = result.get('daily_pnl')
+            if isinstance(raw_pnl, list):
+                daily_pnl = raw_pnl
+            else:
+                daily_pnl = clean_df_for_json(raw_pnl)
 
-            perf_df = result.get('performance')
+            perf = result.get('performance')
             metrics = {}
-            if perf_df is not None and not perf_df.empty:
-                perf_row = perf_df.iloc[0].to_dict()
-                # 移除敏感字段和内部字段
-                sensitive_fields = {'run_id'}
-                metrics = {k: v for k, v in perf_row.items() 
-                          if v is not None and not pd.isna(v) and k not in sensitive_fields}
+            if isinstance(perf, dict):
+                metrics = {k: v for k, v in perf.items() if v is not None}
+            elif perf is not None and hasattr(perf, 'empty') and not perf.empty:
+                perf_row = perf.iloc[0].to_dict()
+                metrics = {k: v for k, v in perf_row.items() if v is not None and not pd.isna(v)}
 
             export_data = {
                 'run_id': run_id,
-                'strategy_name': run_info.iloc[0]['strategy_name'],
+                'strategy_name': str(run_info.iloc[0]['strategy_name']),
                 'start_date': str(run_info.iloc[0]['start_date']),
                 'end_date': str(run_info.iloc[0]['end_date']),
-                'initial_capital': float(run_info.iloc[0]['initial_capital']) if run_info.iloc[0]['initial_capital'] else None,
-                'status': run_info.iloc[0]['status'],
-                'completed_at': run_info.iloc[0]['completed_at'].strftime('%Y-%m-%d %H:%M:%S') if run_info.iloc[0]['completed_at'] else None,
+                'initial_capital': float(run_info.iloc[0]['initial_capital']) if pd.notna(run_info.iloc[0]['initial_capital']) else None,
+                'status': str(run_info.iloc[0]['status']),
+                'completed_at': str(run_info.iloc[0]['completed_at']) if pd.notna(run_info.iloc[0]['completed_at']) else None,
                 'metrics': metrics,
                 'trades': trades,
                 'daily_pnl': daily_pnl
             }
 
-            json_output = io.StringIO()
             import json as json_module
-            json_module.dump(export_data, json_output, ensure_ascii=False, indent=2)
-            json_content = json_output.getvalue()
+            class DateEncoder(json_module.JSONEncoder):
+                def default(self, obj):
+                    if hasattr(obj, 'isoformat'):
+                        return obj.isoformat()
+                    if hasattr(obj, 'strftime'):
+                        return obj.strftime('%Y-%m-%d %H:%M:%S')
+                    return str(obj)
+            json_content = json_module.dumps(export_data, ensure_ascii=False, indent=2, cls=DateEncoder)
 
             return Response(
                 json_content,
@@ -1141,3 +1257,67 @@ def cancel_batch_task(task_id):
         return jsonify({'task_id': task_id, 'status': 'cancelled'})
     else:
         return jsonify({'error': '任务不存在或已过期'}), 404
+
+
+@backtest_bp.route('/detail/<run_id>/full', methods=['GET'])
+def get_backtest_full_detail(run_id):
+    """获取回测完整数据（ECharts 页面用）"""
+    if not run_id:
+        return jsonify({'error': '缺少 run_id'}), 400
+    try:
+        import duckdb as ddb
+        conn = ddb.connect(DB_PATH, read_only=True)
+        try:
+            run_row = conn.execute(
+                "SELECT run_id, strategy_name, strategy_params, start_date, end_date, "
+                "universe, benchmark, initial_capital, status "
+                "FROM backtest_run WHERE run_id = ?", [run_id]
+            ).fetchone()
+            if not run_row:
+                return jsonify({'error': f'回测不存在: {run_id}'}), 404
+            run_info = dict(zip(
+                ["run_id", "strategy_name", "strategy_params", "start_date", "end_date",
+                 "universe", "benchmark", "initial_capital", "status"], run_row))
+
+            top_n = 5
+            try:
+                sp = json.loads(run_info["strategy_params"] or "{}")
+                top_n = sp.get("top_n", 5)
+            except:
+                pass
+
+            pnl_rows = conn.execute(
+                "SELECT date, pnl, pnl_pct, total_value, positions "
+                "FROM backtest_daily_pnl WHERE run_id = ? ORDER BY date", [run_id]).fetchall()
+            daily_pnl = [{"date": str(r[0])[:10] if r[0] else None,
+                          "pnl": r[1], "pnl_pct": r[2], "total_value": r[3],
+                          "positions": json.loads(r[4]) if r[4] else {}} for r in pnl_rows]
+
+            trade_rows = conn.execute(
+                "SELECT id, datetime, code, action, price, size, amount, commission "
+                "FROM backtest_trades WHERE run_id = ? ORDER BY id", [run_id]).fetchall()
+            trades = [{"date": str(r[1])[:10] if r[1] else None, "code": r[2],
+                       "action": "买入" if r[3] == "BUY" else "卖出" if r[3] == "SELL" else r[3],
+                       "price": r[4], "shares": r[5], "amount": r[6], "commission": r[7]} for r in trade_rows]
+
+            perf_row = conn.execute(
+                "SELECT total_return, annual_return, max_drawdown, sharpe_ratio, "
+                "sortino_ratio, calmar_ratio, annual_volatility, win_rate, total_trades "
+                "FROM backtest_performance WHERE run_id = ?", [run_id]).fetchone()
+            perf = dict(zip(
+                ["total_return", "annual_return", "max_drawdown", "sharpe_ratio",
+                 "sortino_ratio", "calmar_ratio", "annual_volatility", "win_rate", "total_trades"],
+                perf_row)) if perf_row else {}
+
+            initial_cash = float(run_info["initial_capital"] or 500000)
+            final_value = initial_cash * (1 + float(perf.get("total_return", 0) or 0))
+
+            return jsonify({**run_info, "top_n": top_n, "initial_cash": initial_cash,
+                            "final_value": round(final_value, 2), "metrics": perf,
+                            "daily_pnl": daily_pnl, "trades": trades, "daily_positions": [],
+                            "monthly_returns": {}})
+        finally:
+            conn.close()
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return jsonify({'error': str(e)}), 500

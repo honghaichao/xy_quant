@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个股K线图 - xy_quant</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --card-bg: #161b22;
+            --border: #30363d;
+            --text: #c9d1d9;
+            --text-secondary: #8b949e;
+            --green: #26a69a;
+            --red: #ef5350;
+            --accent: #58a6ff;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            overflow: hidden;
+        }
+        .layout {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        .toolbar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            background: var(--card-bg);
+            border-bottom: 1px solid var(--border);
+            z-index: 10;
+        }
+        .toolbar .back-btn {
+            background: var(--border);
+            border: none;
+            color: var(--text);
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .toolbar .back-btn:hover { background: #484f58; }
+        .search-box {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex: 1;
+            max-width: 360px;
+        }
+        .search-box input {
+            flex: 1;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            outline: none;
+        }
+        .search-box input:focus { border-color: var(--accent); }
+        .search-results {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 0 0 6px 6px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 100;
+        }
+        .search-results .item {
+            padding: 8px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border);
+        }
+        .search-results .item:hover { background: #1c2129; }
+        .search-results .item .code { color: var(--text-secondary); font-size: 12px; margin-left: 8px; }
+        .stock-info {
+            display: flex;
+            align-items: baseline;
+            gap: 16px;
+            margin-left: auto;
+        }
+        .stock-info .name { font-size: 16px; font-weight: 600; }
+        .stock-info .code { color: var(--text-secondary); font-size: 13px; }
+        .stock-info .price { font-size: 20px; font-weight: 700; }
+        .stock-info .price.up { color: var(--red); }
+        .stock-info .price.down { color: var(--green); }
+        .period-selector {
+            display: flex;
+            gap: 4px;
+        }
+        .period-selector button {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            padding: 4px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .period-selector button.active {
+            background: var(--accent);
+            color: #fff;
+            border-color: var(--accent);
+        }
+        .chart-container {
+            flex: 1;
+            min-height: 0;
+        }
+        .chart-container .echarts {
+            width: 100%;
+            height: 100%;
+        }
+        .signals-panel {
+            padding: 8px 16px;
+            background: var(--card-bg);
+            border-top: 1px solid var(--border);
+            font-size: 12px;
+            color: var(--text-secondary);
+            display: flex;
+            gap: 16px;
+            overflow-x: auto;
+        }
+        .signals-panel .tag {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+        .tag.buy { background: rgba(239,83,80,0.15); color: var(--red); }
+        .tag.sell { background: rgba(38,166,154,0.15); color: var(--green); }
+
+        /* 持仓侧边栏 */
+        .positions-sidebar {
+            position: fixed; right: 0; top: 0; width: 300px; height: 100vh;
+            background: var(--card-bg); border-left: 1px solid var(--border);
+            z-index: 1000; overflow-y: auto; padding: 12px; box-shadow: -4px 0 16px rgba(0,0,0,0.3);
+        }
+        .sidebar-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding-bottom: 8px; border-bottom: 1px solid var(--border);
+            font-size: 14px; font-weight: 600; margin-bottom: 8px;
+        }
+        .sidebar-list .pos-item {
+            padding: 10px 8px; cursor: pointer; border-radius: 6px;
+            border-bottom: 1px solid var(--border); margin-bottom: 4px;
+            transition: background 0.15s;
+        }
+        .sidebar-list .pos-item:hover { background: #1c2129; }
+        .pos-item .pos-name { font-weight: 600; font-size: 13px; }
+        .pos-item .pos-code { color: var(--text-secondary); font-size: 11px; margin-left: 6px; }
+        .pos-item .pos-pnl { font-size: 12px; margin-top: 2px; }
+        .pos-pnl.up { color: var(--red); }
+        .pos-pnl.down { color: var(--green); }
+        .pos-toggle-btn {
+            position: fixed; right: 12px; bottom: 40px; z-index: 999;
+            background: var(--accent); color: #fff; border: none;
+            padding: 8px 14px; border-radius: 20px; cursor: pointer;
+            font-size: 13px; box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+    </style>
+</head>
+<body>
+<div class="layout">
+    <div class="toolbar">
+        <button class="back-btn" onclick="history.back()">← 返回</button>
+        <div class="search-box" style="position:relative">
+            <input type="text" id="searchInput" placeholder="输入股票代码或名称... " autocomplete="off">
+            <div class="search-results" id="searchResults"></div>
+        </div>
+        <div class="period-selector">
+            <button data-days="60" onclick="changePeriod(60)">60天</button>
+            <button data-days="120" onclick="changePeriod(120)">120天</button>
+            <button data-days="250" onclick="changePeriod(250)" class="active">250天</button>
+            <button data-days="0" onclick="changePeriod(0)">全部</button>
+        </div>
+        <div class="stock-info" id="stockInfo">
+            <span class="name">--</span>
+            <span class="code">--</span>
+            <span class="price">--</span>
+        </div>
+    </div>
+    <div class="chart-container">
+        <div id="chart" class="echarts"></div>
+    </div>
+    <div class="signals-panel" id="signals">
+        加载中...
+    </div>
+</div>
+
+<button class="pos-toggle-btn" onclick="togglePositions()">📊 持仓</button>
+<div class="positions-sidebar" id="positionsSidebar" style="display:none">
+    <div class="sidebar-header">
+        <span>📊 持仓列表</span>
+        <button onclick="togglePositions()" style="background:none;border:none;color:#8b949e;cursor:pointer;font-size:18px">✕</button>
+    </div>
+    <div class="sidebar-list" id="positionsList">加载中...</div>
+</div>
+
+<script>
+const API = '/api/stock';
+const chart = echarts.init(document.getElementById('chart'));
+let currentCode = '000001';
+let currentDays = 250;
+
+// ── Parse URL params ──
+const params = new URLSearchParams(window.location.search);
+if (params.get('code')) currentCode = params.get('code');
+
+// ── Period selector ──
+function changePeriod(days) {
+    currentDays = days;
+    document.querySelectorAll('.period-selector button').forEach(b => b.classList.remove('active'));
+    document.querySelector(`.period-selector button[data-days="${days}"]`)?.classList.add('active');
+    loadKline(currentCode, days);
+}
+
+// ── Search ──
+let searchTimer;
+document.getElementById('searchInput').addEventListener('input', function() {
+    clearTimeout(searchTimer);
+    const q = this.value.trim();
+    if (q.length < 1) {
+        document.getElementById('searchResults').style.display = 'none';
+        return;
+    }
+    searchTimer = setTimeout(async () => {
+        const resp = await fetch(`${API}/search?q=${encodeURIComponent(q)}`);
+        const data = await resp.json();
+        const container = document.getElementById('searchResults');
+        if (data.results.length === 0) {
+            container.style.display = 'none';
+            return;
+        }
+        container.innerHTML = data.results.map(r =>
+            `<div class="item" onclick="selectStock('${r.code}','${r.name}')">
+                ${r.name}<span class="code">${r.code}</span>
+            </div>`
+        ).join('');
+        container.style.display = 'block';
+    }, 200);
+});
+
+function selectStock(code, name) {
+    currentCode = code;
+    document.getElementById('searchInput').value = `${name} ${code}`;
+    document.getElementById('searchResults').style.display = 'none';
+    history.replaceState({}, '', `?code=${code}`);
+    loadKline(code, currentDays);
+    loadInfo(code);
+}
+
+// ── Load K-line ──
+async function loadKline(code, days) {
+    const limit = days > 0 ? days : 500;
+    const resp = await fetch(`${API}/${code}/kline?limit=${limit}`);
+    const data = await resp.json();
+
+    if (!data.data || data.data.length === 0) {
+        chart.setOption({ title: { text: '无数据', left: 'center', top: 'center', textStyle: { color: '#8b949e' } } });
+        return;
+    }
+
+    // 更新标题栏
+    const latest = data.data[data.data.length - 1];
+    const prevClose = data.data.length > 1 ? data.data[data.data.length - 2].close : latest.close;
+    document.getElementById('stockInfo').innerHTML = `
+        <span class="name">${data.name}</span>
+        <span class="code">${code}</span>
+        <span class="price ${latest.close >= prevClose ? 'up' : 'down'}">${latest.close?.toFixed(2) || '--'}</span>
+    `;
+
+    // 构建 ECharts 蜡烛图 + 支撑压力 + 买卖点
+    const dates = data.data.map(d => d.trade_date);
+    const ohlc = data.data.map(d => [d.open, d.close, d.low, d.high]);
+    const volumes = data.data.map(d => d.vol);
+    const ma5 = data.data.map(d => d.ma5 ?? null);
+    const ma10 = data.data.map(d => d.ma10 ?? null);
+    const ma20 = data.data.map(d => d.ma20 ?? null);
+    const ma60 = data.data.map(d => d.ma60 ?? null);
+    const ma120 = data.data.map(d => d.ma120 ?? null);
+    const support = data.data.map(d => d.support ?? null);
+    const resistance = data.data.map(d => d.resistance ?? null);
+    const bollUpper = data.data.map(d => d.boll_upper ?? null);
+    const bollLower = data.data.map(d => d.boll_lower ?? null);
+
+    // ── 买入点 / 卖出点 marker ──
+    const buyMarkers = [];
+    const sellMarkers = [];
+    data.data.forEach((d, i) => {
+        if (d.buy_signal && d.low && d.buy_info) {
+            const info = d.buy_info;
+            const strategies = (info.strategies || []).join(',');
+            const tooltip = `${info.strategies?.join(',') || d.buy_signal}
+得分: ${info.best_score}
+涨跌: ${info.change_pct}%
+成交量: ${(info.volume/10000).toFixed(0)}万
+收盘: ${info.close}`;
+            buyMarkers.push({
+                name: strategies,
+                coord: [dates[i], info.marker_price || Math.round(d.low * 0.96 * 100) / 100],
+                value: d.buy_signal,
+                symbol: 'triangle',
+                symbolSize: 14,
+                itemStyle: { color: '#ef5350' },
+                tooltip: { formatter: tooltip },
+                label: { show: true, position: 'bottom', fontSize: 9, color: '#ef5350', formatter: '{b}' }
+            });
+        }
+        if (d.sell_signal && d.high && d.sell_info) {
+            const info = d.sell_info;
+            const tooltip = `${info.reasons?.join(',') || d.sell_signal}
+S1得分: ${info.score_s1}
+涨跌: ${info.change_pct}%
+收盘: ${info.close}`;
+            sellMarkers.push({
+                name: info.reasons?.join(',') || d.sell_signal,
+                coord: [dates[i], info.marker_price || Math.round(d.high * 1.04 * 100) / 100],
+                value: d.sell_signal,
+                symbol: 'triangle',
+                symbolSize: 14,
+                symbolRotate: 180,
+                itemStyle: { color: '#26a69a' },
+                tooltip: { formatter: tooltip },
+                label: { show: true, position: 'top', fontSize: 9, color: '#26a69a', formatter: '{b}' }
+            });
+        }
+    });
+
+    // 成交量颜色
+    const volColors = data.data.map((d, i) => {
+        const prev = i > 0 ? data.data[i-1] : null;
+        const isUp = prev ? d.close >= prev.close : true;
+        return { value: d.vol, itemStyle: { color: isUp ? '#ef5350' : '#26a69a' } };
+    });
+
+    const option = {
+        backgroundColor: '#0d1117',
+        tooltip: {
+            trigger: 'axis',
+            axisPointer: { type: 'cross' },
+            backgroundColor: '#161b22',
+            borderColor: '#30363d',
+            textStyle: { color: '#c9d1d9', fontSize: 12 },
+        },
+        legend: {
+            data: ['K线','MA5','MA10','MA20','MA60','MA120','支撑(20low)','压力(20high)','Boll上轨','Boll下轨'],
+            top: 0, left: 'center',
+            textStyle: { color: '#8b949e', fontSize: 11 },
+            itemWidth: 15, itemHeight: 8,
+            selected: { 'MA60': false, 'MA120': false, 'Boll上轨': false, 'Boll下轨': false, '支撑(20low)': false, '压力(20high)': false }
+        },
+        grid: [
+            { left: '8%', right: '2%', top: '6%', height: '55%' },
+            { left: '8%', right: '2%', top: '68%', height: '12%' },
+        ],
+        xAxis: [
+            {
+                type: 'category', data: dates, gridIndex: 0,
+                axisLine: { lineStyle: { color: '#30363d' } },
+                axisLabel: { color: '#8b949e', fontSize: 11 },
+            },
+            {
+                type: 'category', data: dates, gridIndex: 1,
+                axisLine: { lineStyle: { color: '#30363d' } },
+                axisLabel: { show: false },
+            },
+        ],
+        yAxis: [
+            {
+                scale: true, gridIndex: 0,
+                axisLine: { lineStyle: { color: '#30363d' } },
+                axisLabel: { color: '#8b949e', fontSize: 11 },
+                splitLine: { lineStyle: { color: '#1c2129' } },
+            },
+            {
+                scale: true, gridIndex: 1,
+                axisLine: { lineStyle: { color: '#30363d' } },
+                axisLabel: { color: '#8b949e', fontSize: 10 },
+                splitLine: { show: false },
+            },
+        ],
+        series: [
+            // ── Support / Resistance (render behind candlestick) ──
+            {
+                name: '压力(20high)', type: 'line', xAxisIndex: 0, yAxisIndex: 0,
+                data: resistance, symbol: 'none',
+                lineStyle: { color: 'rgba(239,83,80,0.35)', width: 1, type: 'dashed' },
+                z: 0,
+            },
+            {
+                name: '支撑(20low)', type: 'line', xAxisIndex: 0, yAxisIndex: 0,
+                data: support, symbol: 'none',
+                lineStyle: { color: 'rgba(38,166,154,0.35)', width: 1, type: 'dashed' },
+                z: 0,
+            },
+            // ── Bollinger Bands ──
+            {
+                name: 'Boll上轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0,
+                data: bollUpper, symbol: 'none',
+                lineStyle: { color: 'rgba(206,147,216,0.3)', width: 1 },
+                z: 1,
+            },
+            {
+                name: 'Boll下轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0,
+                data: bollLower, symbol: 'none',
+                lineStyle: { color: 'rgba(206,147,216,0.3)', width: 1 },
+                z: 1,
+            },
+            // ── K-line ──
+            {
+                name: 'K线', type: 'candlestick', xAxisIndex: 0, yAxisIndex: 0,
+                data: ohlc,
+                itemStyle: {
+                    color: '#ef5350', color0: '#26a69a',
+                    borderColor: '#ef5350', borderColor0: '#26a69a',
+                },
+                z: 2,
+            },
+            // ── MA lines ──
+            {
+                name: 'MA5', type: 'line', xAxisIndex: 0, yAxisIndex: 0,
+                data: ma5, smooth: true, symbol: 'none',
+                lineStyle: { color: '#f4d03f', width: 1 }, z: 3,
+            },
+            {
+                name: 'MA10', type: 'line', xAxisIndex: 0, yAxisIndex: 0,
+                data: ma10, smooth: true, symbol: 'none',
+                lineStyle: { color: '#58a6ff', width: 1 }, z: 3,
+            },
+            {
+                name: 'MA20', type: 'line', xAxisIndex: 0, yAxisIndex: 0,
+                data: ma20, smooth: true, symbol: 'none',
+                lineStyle: { color: '#ce93d8', width: 1 }, z: 3,
+            },
+            {
+                name: 'MA60', type: 'line', xAxisIndex: 0, yAxisIndex: 0,
+                data: ma60, smooth: true, symbol: 'none',
+                lineStyle: { color: '#ff9800', width: 1 }, z: 3,
+            },
+            {
+                name: 'MA120', type: 'line', xAxisIndex: 0, yAxisIndex: 0,
+                data: ma120, smooth: true, symbol: 'none',
+                lineStyle: { color: '#ff5722', width: 1 }, z: 3,
+            },
+            // ── Buy / Sell markers ──
+            {
+                name: '买入点', type: 'scatter', xAxisIndex: 0, yAxisIndex: 0,
+                data: buyMarkers, z: 10,
+            },
+            {
+                name: '卖出点', type: 'scatter', xAxisIndex: 0, yAxisIndex: 0,
+                data: sellMarkers, z: 10,
+            },
+            // ── Volume ──
+            {
+                name: '成交量', type: 'bar', xAxisIndex: 1, yAxisIndex: 1,
+                data: volColors, z: 5,
+            },
+        ],
+    };
+    chart.setOption(option, true);
+}
+
+// ── Load stock info + signals ──
+async function loadInfo(code) {
+    const resp = await fetch(`${API}/${code}/info`);
+    const data = await resp.json();
+    const signalsDiv = document.getElementById('signals');
+    if (!data.recent_signals || data.recent_signals.length === 0) {
+        signalsDiv.innerHTML = '近期无信号';
+        return;
+    }
+    signalsDiv.innerHTML = data.recent_signals.slice(0, 5).map(s => {
+        const buyTags = (s.buy_signals||[]).map(b => `<span class="tag buy">${b}</span>`).join('');
+        const sellTags = (s.sell_signals||[]).map(sl => `<span class="tag sell">${sl}</span>`).join('');
+        return `<div><span style="color:#8b949e">${s.date}</span> ${buyTags}${sellTags}</div>`;
+    }).join('');
+}
+
+// ── Init ──
+window.addEventListener('resize', () => chart.resize());
+loadKline(currentCode, currentDays);
+loadInfo(currentCode);
+loadPositions();
+
+// ── 持仓侧边栏 ──
+function togglePositions() {
+    const sidebar = document.getElementById('positionsSidebar');
+    sidebar.style.display = sidebar.style.display === 'none' ? 'block' : 'none';
+    if (sidebar.style.display === 'block') loadPositions();
+}
+
+async function loadPositions() {
+    const resp = await fetch('/api/positions');
+    const data = await resp.json();
+    const container = document.getElementById('positionsList');
+    if (!data.positions || data.positions.length === 0) {
+        container.innerHTML = '<div style="color:#8b949e;padding:8px">暂无持仓</div>';
+        return;
+    }
+    container.innerHTML = data.positions.map(p => {
+        const pl = p.profit_loss || 0;
+        const sign = pl >= 0 ? '+' : '';
+        const cls = pl >= 0 ? 'up' : 'down';
+        return \`<div class="pos-item" onclick="selectStock('\${p.code}','\${p.name}')">
+            <div><span class="pos-name">\${p.name}</span><span class="pos-code">\${p.code}</span></div>
+            <div class="pos-pnl \${cls}">
+                \${p.strategy || ''} | 成本\${p.buy_price} | 现\${p.current_price}
+                <br>盈亏 \${sign}\${pl.toFixed(0)} (\${sign}\${(p.profit_pct||0).toFixed(1)}%)
+            </div>
+        </div>\`;
+    }).join('');
+    // update summary
+    const summary = data.summary;
+    container.innerHTML += \`<div style="padding:8px;color:#8b949e;font-size:11px;border-top:1px solid var(--border);margin-top:4px">
+        持仓\${summary.count}只 | 市值¥\${(summary.total_value/10000).toFixed(1)}万
+        <br>盈亏 ¥\${summary.holding_profit.toFixed(0)}
+    </div>\`;
+}
+</script>
+</body>
+</html>

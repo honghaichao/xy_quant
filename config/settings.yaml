@@ -5,3 +5,54 @@ scheduler:
   retry_attempts: 3
   retry_min_wait: 1
   retry_max_wait: 8
+
+trading:
+  # 信号策略纸面盘（build_positions / portfolio_daily 共用）
+  initial_cash: 500000.0
+  fee_rate: 0.0005            # 信号管线单边费率（沿历史口径）
+  max_positions: 10
+  fixed_stop_loss_pct: 0.05
+  strategy_alloc:
+    B1: 0.00    # 2026-07-18 评估停用（均收益-1.51%，超额-1.15%，胜率34%）
+    B2: 0.35    # 最优：均收益+0.83%，超额+0.76%
+    BLK: 0.05   # 降权观察（均收益-0.10%，超额-0.28%）
+    BLKB2: 0.25 # 均收益+0.80%，超额+0.40%
+    SCB: 0.10   # 维持底线
+    DZ30: 0.25  # 均收益+0.71%，超额+0.41%
+  # 建仓风控
+  max_positions: 8                    # 下调 2 格，配合市场过滤留更多现金
+  max_per_strategy:                   # 单策略持仓上限（防单策略挤占全部仓位）
+    B1: 0
+    B2: 3
+    BLK: 1
+    BLKB2: 2
+    SCB: 2
+    DZ30: 2
+  market_filter:                      # 大盘状态过滤
+    enabled: true
+    index_code: "000001.SH"           # 上证指数
+    ma_period: 20                     # MA20 之下不建仓（只平仓）
+  # ── 动态仓位 (engine/position_sizer.py) ──
+  position_sizer:
+    enabled: true
+    total_capital: 600000.0        # 合并信号 50万 + JQ 10万
+    target_vol: 0.15               # 年化目标波动率
+    max_single_pct: 0.10           # 单票 ≤ 10%
+    max_strategy_pct: 0.25         # 单策略 ≤ 25%
+    max_total_pct: 0.80            # 总仓位 ≤ 80%
+    vol_lookback: 20               # 波动率回看窗口
+  # JQ 引擎费率（回测/实盘共用）
+  commission: 0.0003          # 双边佣金
+  stamp_duty: 0.001           # 印花税，仅卖出
+  min_commission: 0.0
+  # JQ 实盘策略清单
+  live:
+    write_positions_table: true
+    fill_fallback: market     # confirm 模式未确认单：market=按重放价成交 | skip=跳过
+    strategies:
+      - id: caimadama
+        module: strategies.jq.caimadama
+        mode: paper           # paper=纯模拟 | confirm=推单人工确认
+        initial_cash: 100000.0
+        enabled: true
+

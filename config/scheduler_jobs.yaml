@@ -44,7 +44,7 @@ jobs:
   - id: intraday_snapshot
     target: intraday
     trigger: cron
-    enabled: false               # 手动启动: --run-now intraday_snapshot
+    enabled: true
     cron:
       day_of_week: mon-fri
       hour: '9-14'

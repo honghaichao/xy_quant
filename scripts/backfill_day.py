@@ -157,7 +157,69 @@ def main(argv: list[str] | None = None) -> dict[str, dict[str, int]]:
 
 
 def run_job(**kwargs: object) -> dict[str, dict[str, int]]:
-    return _run_from_args(Namespace(**kwargs))
+    """调度器入口 — 带日线数据到达检测。
+
+    问题：Tushare 日线通常在收盘后 17:30-20:00 到位，周一常延迟到 20:30+。
+    调度器虽设了 20:30/20:45/21:00 三道路障，但若三次独立触发都撞上数据未到位，
+    则当天全链路（信号→事件→因子→推送）全部落空，且无人工感知。
+
+    修复：run_job 内对 daily 子任务做轮询重试，直到 daily_bar 拉回有效行数。
+    只重跑 daily 子任务（不重复 basic/finance/member/suspend），间隔 120s，
+    最多 12 次（合计 ~24 分钟），不会与下一次 cron 触发重叠。
+    """
+    import time as _time
+
+    _MAX_DAILY_RETRIES = 12
+    _DAILY_RETRY_WAIT = 120  # 秒
+
+    args = Namespace(**kwargs)
+
+    # ── 首次完整补数 ──
+    result = _run_from_args(args)
+
+    # ── 如果 daily_bar 为空，只对 daily 子任务做轮询重试 ──
+    daily_count = result.get("daily", {}).get("daily_bar", 0)
+    if daily_count and daily_count >= 100:
+        return result
+
+    trade_date = getattr(args, "trade_date", None)
+    td_str = trade_date.isoformat() if trade_date else "today"
+    logger.warning(
+        f"daily_bar 仅 {daily_count} 行（{td_str}），Tushare 数据可能尚未到位，"
+        f"开始轮询重试（最多 {_MAX_DAILY_RETRIES} 次，间隔 {_DAILY_RETRY_WAIT}s）"
+    )
+
+    from scripts.orchestration import INCREMENTAL_JOB_SPECS, run_subjob
+
+    daily_spec = next((j for j in INCREMENTAL_JOB_SPECS if j.name == "daily"), None)
+    if daily_spec is None:
+        logger.error("INCREMENTAL_JOB_SPECS 中找不到 'daily' job，无法重试")
+        return result
+
+    for attempt in range(1, _MAX_DAILY_RETRIES + 1):
+        _time.sleep(_DAILY_RETRY_WAIT)
+        try:
+            daily_result = run_subjob(daily_spec.name, **daily_spec.kwargs_builder(args))
+            daily_count = daily_result.get("daily_bar", 0)
+            result["daily"] = daily_result
+        except Exception as exc:
+            logger.warning(f"daily 子任务第 {attempt} 次重试异常: {exc}")
+            continue
+
+        if daily_count and daily_count >= 100:
+            logger.info(f"daily_bar 数据第 {attempt} 次重试后到达 ({td_str}，{daily_count} 行)")
+            return result
+        logger.info(
+            f"daily_bar 第 {attempt}/{_MAX_DAILY_RETRIES} 次重试仍为 {daily_count} 行，"
+            f"{_DAILY_RETRY_WAIT}s 后重试..."
+        )
+
+    # 全部重试失败
+    logger.error(
+        f"daily_bar 重试 {_MAX_DAILY_RETRIES} 次后仍为 {daily_count} 行（{td_str}），"
+        f"放弃。可能是非交易日或 Tushare 接口异常。信号扫描将跳过今日。"
+    )
+    return result
 
 
 if __name__ == '__main__':

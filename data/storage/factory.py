@@ -15,11 +15,16 @@ META_STORE_REGISTRY: dict[str, type[IMetaStore]] = {"postgres": PostgresMetaStor
 CACHE_REGISTRY: dict[str, type[ICache]] = {"redis": RedisCache}
 
 
-def get_market_store(name: str) -> IMarketStore:
-    """Get market store by name."""
+def get_market_store(name: str, read_only: bool = False) -> IMarketStore:
+    """Get market store by name.
+
+    Set read_only=True to avoid DuckDB write-lock contention during concurrent reads (e.g. backtests).
+    """
     store_class = MARKET_STORE_REGISTRY.get(name)
     if store_class is None:
         raise ConfigError(f"Unsupported market store: {name}")
+    if name == "duckdb":
+        return store_class(read_only=read_only)
     return store_class()
 
 

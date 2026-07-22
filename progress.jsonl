@@ -130,3 +130,15 @@
 {"counts": {"minute_bar": 123}, "event": "batch_item_completed", "job": "minute_bar", "timestamp": "2026-05-21T06:24:06.207944+00:00", "ts_codes": ["000002.SZ"], "workers": 3}
 {"event": "batch_item_started", "job": "minute_bar", "timestamp": "2026-05-21T06:24:06.208203+00:00", "ts_codes": ["000003.SZ"], "workers": 3}
 {"counts": {"minute_bar": 123}, "event": "batch_item_completed", "job": "minute_bar", "timestamp": "2026-05-21T06:24:06.208464+00:00", "ts_codes": ["000003.SZ"], "workers": 3}
+{"event": "batch_item_started", "job": "minute_bar", "timestamp": "2026-07-18T07:01:40.640885+00:00", "ts_codes": ["000001.SZ"], "workers": 3}
+{"counts": {"minute_bar": 123}, "event": "batch_item_completed", "job": "minute_bar", "timestamp": "2026-07-18T07:01:40.641314+00:00", "ts_codes": ["000001.SZ"], "workers": 3}
+{"event": "batch_item_started", "job": "minute_bar", "timestamp": "2026-07-18T07:01:40.641501+00:00", "ts_codes": ["000002.SZ"], "workers": 3}
+{"counts": {"minute_bar": 123}, "event": "batch_item_completed", "job": "minute_bar", "timestamp": "2026-07-18T07:01:40.641708+00:00", "ts_codes": ["000002.SZ"], "workers": 3}
+{"event": "batch_item_started", "job": "minute_bar", "timestamp": "2026-07-18T07:01:40.641901+00:00", "ts_codes": ["000003.SZ"], "workers": 3}
+{"counts": {"minute_bar": 123}, "event": "batch_item_completed", "job": "minute_bar", "timestamp": "2026-07-18T07:01:40.642068+00:00", "ts_codes": ["000003.SZ"], "workers": 3}
+{"event": "batch_item_started", "job": "minute_bar", "timestamp": "2026-07-18T07:03:39.305835+00:00", "ts_codes": ["000001.SZ"], "workers": 3}
+{"counts": {"minute_bar": 123}, "event": "batch_item_completed", "job": "minute_bar", "timestamp": "2026-07-18T07:03:39.306187+00:00", "ts_codes": ["000001.SZ"], "workers": 3}
+{"event": "batch_item_started", "job": "minute_bar", "timestamp": "2026-07-18T07:03:39.306349+00:00", "ts_codes": ["000002.SZ"], "workers": 3}
+{"counts": {"minute_bar": 123}, "event": "batch_item_completed", "job": "minute_bar", "timestamp": "2026-07-18T07:03:39.306524+00:00", "ts_codes": ["000002.SZ"], "workers": 3}
+{"event": "batch_item_started", "job": "minute_bar", "timestamp": "2026-07-18T07:03:39.306667+00:00", "ts_codes": ["000003.SZ"], "workers": 3}
+{"counts": {"minute_bar": 123}, "event": "batch_item_completed", "job": "minute_bar", "timestamp": "2026-07-18T07:03:39.306801+00:00", "ts_codes": ["000003.SZ"], "workers": 3}

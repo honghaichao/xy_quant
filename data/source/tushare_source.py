@@ -667,13 +667,16 @@ def _normalize_industry_money_flow_frame(frame: pd.DataFrame) -> pd.DataFrame:
     normalized = frame.copy()
     if "industry_code" in normalized.columns:
         return normalized
+    net_amount = normalized.get("net_amount")
     return pd.DataFrame(
         {
             "trade_date": normalized.get("trade_date"),
             "industry_code": normalized.get("ts_code"),
             "industry_name": normalized.get("name", normalized.get("industry")),
             "pct_chg": normalized.get("pct_change"),
-            "main_inflow": normalized.get("net_amount"),
+            # Tushare moneyflow_ind_ths returns net_amount in 亿元; convert to 万元
+            # so all money_flow tables use a consistent unit (万元).
+            "main_inflow": net_amount * 10000 if net_amount is not None else None,
             "main_inflow_pct": normalized.get("net_amount_rate"),
             "super_inflow": normalized.get("buy_elg_amount"),
             "big_inflow": normalized.get("buy_lg_amount"),

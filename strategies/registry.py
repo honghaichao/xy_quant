@@ -26,11 +26,25 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional, List
 
-# from database.db_manager import  # replaced by data.api DatabaseManager
-
 # 项目根目录
 PROJECT_ROOT = Path(__file__).parent.parent
 STRATEGIES_DIR = PROJECT_ROOT / 'strategies'
+
+# ── DuckDB helper (avoids circular imports) ──────────────────────
+_DB_PATH: Path | None = None
+
+
+def _get_db_path() -> Path:
+    global _DB_PATH
+    if _DB_PATH is None:
+        from config.settings import settings
+        _DB_PATH = Path(settings.duckdb_path)
+    return _DB_PATH
+
+
+def _db_connect(read_only: bool = False):
+    import duckdb
+    return duckdb.connect(str(_get_db_path()), read_only=read_only)
 
 
 @dataclass
@@ -89,17 +103,19 @@ def register(
         # 存储类引用
         registry._classes[name] = cls
 
-        # 保存到数据库
-        db = DatabaseManager()
-        strategy_data = {
-            'name': name,
-            'class_path': f'strategies.{name}',
-            'description': description,
-            'threshold_required': threshold_required,
-            'min_data_days': min_data_days,
-            'status': 'active',
-        }
-        db.save_strategy(strategy_data)
+        # Save to DuckDB strategy_registry table
+        conn = _db_connect()
+        try:
+            conn.execute(
+                """INSERT OR REPLACE INTO strategy_registry
+                   (id, name, display_name, class_path, description,
+                    threshold_required, min_data_days, status, version)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, 'active', '1.0.0')""",
+                [name, name, name, f'strategies.{name}', description,
+                 threshold_required, min_data_days],
+            )
+        finally:
+            conn.close()
 
         return cls
     return decorator
@@ -155,34 +171,37 @@ class Registry:
         Registry._initialized = True
     
     def _load_from_database(self) -> None:
-        """从数据库加载策略"""
+        """从 DuckDB strategy_registry 表加载策略元数据."""
         try:
-            db = DatabaseManager()
-            strategies = db.list_strategies(status='active')
-            
-            for strategy_info in strategies:
-                name = strategy_info.get('name')
+            conn = _db_connect(read_only=True)
+            try:
+                rows = conn.execute(
+                    "SELECT name, threshold_required, min_data_days, description, "
+                    "author, version "
+                    "FROM strategy_registry WHERE status = 'active'"
+                ).fetchall()
+            finally:
+                conn.close()
+
+            for row in rows:
+                name = row[0]
                 if not name:
                     continue
-                
-                # 创建元数据
                 metadata = StrategyMetadata(
                     name=name,
-                    threshold_required=strategy_info.get('threshold_required', True),
-                    min_data_days=strategy_info.get('min_data_days', 60),
-                    description=strategy_info.get('description', ''),
-                    author=strategy_info.get('author', ''),
-                    version=strategy_info.get('version', '1.0.0'),
+                    threshold_required=bool(row[1]),
+                    min_data_days=int(row[2] or 60),
+                    description=str(row[3] or ""),
+                    author=str(row[4] or ""),
+                    version=str(row[5] or "1.0.0"),
                 )
                 self._metadata[name] = metadata
-                
-                # 加载策略类并缓存
+
                 strategy_class = self._load_strategy_class(name)
                 if strategy_class is not None:
                     self._classes[name] = strategy_class
-                    
+
         except Exception:
-            # 如果加载失败,静默处理 (可能是数据库问题)
             pass
     
     def register(self, name: str, metadata: StrategyMetadata) -> None:
@@ -273,31 +292,35 @@ class Registry:
             return None
     
     def list(self, status: str = 'active') -> List[str]:
-        """
-        列出已注册策略名称（默认只返回active状态）
-
-        Args:
-            status: 策略状态过滤，默认'active'，可选值包括'active'、'deprecated'等
-
-        Returns:
-            符合条件的策略名称列表
-        """
-        # from database.db_manager import  # replaced by data.api DatabaseManager
-        db_manager = DatabaseManager()
-        strategies = db_manager.list_strategies(status=status)
-        return [s['name'] for s in strategies]
+        """列出已注册策略名称（默认只返回active状态）."""
+        names: list[str] = []
+        conn = _db_connect(read_only=True)
+        try:
+            rows = conn.execute(
+                "SELECT name FROM strategy_registry WHERE status = ? ORDER BY name",
+                [status],
+            ).fetchall()
+            names = [str(row[0]) for row in rows]
+        except Exception:
+            pass
+        finally:
+            conn.close()
+        return names
 
     def list_all(self) -> List[str]:
-        """
-        列出所有已注册策略名称（包括已废弃的策略）
-
-        Returns:
-            所有策略名称列表
-        """
-        # from database.db_manager import  # replaced by data.api DatabaseManager
-        db_manager = DatabaseManager()
-        strategies = db_manager.list_strategies(status=None)
-        return [s['name'] for s in strategies]
+        """列出所有已注册策略名称（包括已废弃的策略）."""
+        names: list[str] = []
+        conn = _db_connect(read_only=True)
+        try:
+            rows = conn.execute(
+                "SELECT name FROM strategy_registry ORDER BY name"
+            ).fetchall()
+            names = [str(row[0]) for row in rows]
+        except Exception:
+            pass
+        finally:
+            conn.close()
+        return names
     
     def filter(self, **kwargs) -> List[str]:
         """
@@ -365,29 +388,23 @@ class Registry:
         return iter(self._metadata.keys())
     
     def soft_delete(self, name: str) -> bool:
-        """
-        软删除策略 (标记为deprecated)
-        
-        Args:
-            name: 策略名称
-            
-        Returns:
-            True if successful, False if not found
-        """
+        """软删除策略 (标记为deprecated)."""
         if name not in self._metadata:
             return False
-        
-        # 调用DatabaseManager更新数据库状态
-        # from database.db_manager import  # replaced by data.api DatabaseManager
-        db_manager = DatabaseManager()
-        success = db_manager.update_strategy_status(name, 'archived')
-        
-        if success:
-            # 从内存缓存中移除
-            if name in self._classes:
-                del self._classes[name]
-            # 从 _metadata 中移除（软删除后不再显示）
-            if name in self._metadata:
-                del self._metadata[name]
-        
-        return success
+
+        conn = _db_connect()
+        try:
+            conn.execute(
+                "UPDATE strategy_registry SET status = 'archived', "
+                "updated_at = CURRENT_TIMESTAMP WHERE name = ?",
+                [name],
+            )
+        finally:
+            conn.close()
+
+        if name in self._classes:
+            del self._classes[name]
+        if name in self._metadata:
+            del self._metadata[name]
+
+        return True
