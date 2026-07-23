@@ -41,26 +41,41 @@ try:
 except ImportError:
     pass
 
-# 列名兼容：
-#   xy_quant 引擎 → "trade_date"
-#   聚宽 get_price(panel=False) → "time"
-#   聚宽 get_all_securities 等 → "date"
+# ====================================================================
+# 适配层：聚宽 get_price(panel=False) 返回 MultiIndex (time, code)，
+# 日期在 index 里不在 columns 里；xy_quant 引擎在 columns 里。
+# 下面三个 helper 统一处理这些差异，上层策略代码无感知。
+# ====================================================================
+
 def _date_col(df):
+    """找日期列/索引名，优先 columns 再查 index names。"""
     for col in ('trade_date', 'time', 'date'):
         if col in df.columns:
             return col
-    raise KeyError(f"找不到日期列, columns={list(df.columns)[:10]}")
+    for name in df.index.names:
+        if name in ('trade_date', 'time', 'date'):
+            return name
+    raise KeyError(f"找不到日期列, columns={list(df.columns)[:10]}, index_names={df.index.names}")
+
+def _normalize_index(df):
+    """如果日期在 index 里（聚宽 MultiIndex），reset_index 把 date + code 展开为 columns。"""
+    dc = _date_col(df)
+    if dc not in df.columns:
+        df = df.reset_index()
+    return df
 
 def _sort_by_date(df, cols=None):
-    """按日期列排序，兼容双平台列名差异。"""
+    """按日期列排序，兼容双平台。自动展开 index 中的日期。"""
+    df = _normalize_index(df)
     dc = _date_col(df)
-    sort_cols = cols + [dc] if cols else [dc]
+    sort_cols = list(cols or []) + [dc]
     return df.sort_values(sort_cols)
 
 def _drop_date_dup(df, cols=None):
-    """groupby 后取每组最新一条，兼容双平台列名差异。"""
+    """groupby 后取每组最新一条，兼容双平台。"""
+    df = _normalize_index(df)
     dc = _date_col(df)
-    sort_cols = cols + [dc] if cols else [dc]
+    sort_cols = list(cols or []) + [dc]
     return df.sort_values(sort_cols).groupby(cols or 'code').tail(1)
 
 # ====================================================================
@@ -612,7 +627,7 @@ def build_train_dates(context):
         )
         if idx_df.empty:
             return []
-        # 聚宽 get_price(panel=False) 日期列叫 date，xy_quant 叫 trade_date
+        idx_df = _normalize_index(idx_df)
         dt_col = _date_col(idx_df)
         all_dates_arr = sorted(idx_df[dt_col].unique().tolist())
         all_dates = all_dates_arr[-total_days:]
