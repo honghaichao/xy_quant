@@ -187,7 +187,7 @@ def main():
             minute=cron.get("minute", "0"),
         )
         logger.info(f"Registered: {job['id']} → {target} "
-                     f"@ {cron.get('day_of_week','*')} {cron.get('hour',0):02d}:{cron.get('minute',0):02d}")
+                     f"@ {cron.get('day_of_week','*')} {str(cron.get('hour','0')):>02s}:{str(cron.get('minute','0')):>02s}")
 
     sched.start()
     logger.info(f"Scheduler started ({len(jobs)} jobs, timezone={tz})")
