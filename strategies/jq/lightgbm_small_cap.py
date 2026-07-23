@@ -575,19 +575,23 @@ def build_train_dates(context):
         all_dates = get_trade_days(
             end_date=context.previous_date, count=total_days)
     else:
-        # 聚宽平台：get_all_trade_days() 返回全部交易日，手动截取
-        from datetime import datetime as _dt
-        all_dates_pd = get_all_trade_days()
-        # all_dates_pd 是 pandas DatetimeIndex 或 numpy array
-        if hasattr(all_dates_pd, 'tolist'):
-            all_dates_arr = all_dates_pd.tolist()
-        else:
-            all_dates_arr = list(all_dates_pd)
+        # 聚宽平台：没有独立的 get_all_trade_days()，
+        # 通过 get_price 拉上证指数日线来提取交易日
         prev = context.previous_date
         if hasattr(prev, 'date'):
             prev = prev.date()
-        prev_pd = pd.Timestamp(prev)
-        all_dates_arr = [d for d in all_dates_arr if pd.Timestamp(d) <= prev_pd]
+        # 往前取足够多的 bar，从中提取 trade_date
+        idx_df = get_price(
+            '000001.XSHG',
+            end_date=prev,
+            count=int(total_days * 1.3),  # 多取 30% 含周末节假日
+            frequency='daily',
+            fields=['close'],
+            panel=False,
+        )
+        if idx_df.empty:
+            return []
+        all_dates_arr = sorted(idx_df['trade_date'].unique().tolist())
         all_dates = all_dates_arr[-total_days:]
 
     all_dates = list(reversed(all_dates))
