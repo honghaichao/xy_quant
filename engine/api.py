@@ -204,4 +204,12 @@ def build_namespace(engine: Any, ctx: Context, g: G) -> dict[str, Any]:
         if hasattr(dp, fn_name):
             ns[fn_name] = getattr(dp, fn_name)
 
+    # 注入聚宽 query/valuation/indicator 全局对象
+    if hasattr(dp, 'query'):
+        ns['query'] = dp.query
+    if hasattr(dp, 'valuation'):
+        ns['valuation'] = dp.valuation
+    if hasattr(dp, 'indicator'):
+        ns['indicator'] = dp.indicator
+
     return ns

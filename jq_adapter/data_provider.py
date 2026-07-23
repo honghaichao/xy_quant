@@ -237,17 +237,94 @@ def get_valuation(
 
 
 def get_fundamentals(
-    table: str,
+    query_obj=None,
+    table: str | None = None,
     ts_code: str | list[str] | None = None,
     start_date: date | None = None,
     end_date: date | None = None,
     fields: list[str] | None = None,
+    date: date | None = None,
 ) -> pd.DataFrame:
     """
-    获取基本面数据。
+    获取基本面数据。兼容两种调用方式：
 
-    table 支持: income / balance / cashflow / daily_basic / fina_indicator 等
+    1. 聚宽格式：get_fundamentals(query(...).filter(...), date=date)
+       query_obj 是 _QueryFilter，内含 table_name, fields, conditions
+
+    2. 旧格式：get_fundamentals(table='daily_basic', ts_code=..., ...)
     """
+    # 聚宽格式：query object
+    if query_obj is not None and hasattr(query_obj, 'table_name'):
+        table_name = query_obj.table_name
+        dt = date or end_date or datetime.now().date()
+        codes_raw = query_obj.conditions.get("codes", []) if hasattr(query_obj, 'conditions') else []
+        if codes_raw is None:
+            codes_raw = []
+        if isinstance(codes_raw, str):
+            codes_raw = [codes_raw]
+        codes_normalized = [normalize_code(c) for c in codes_raw]
+
+        field_list = _build_fields_list(query_obj.fields) if hasattr(query_obj, 'fields') else (fields or [])
+
+        table_map = {"valuation": "daily_basic", "indicator": "fina_indicator"}
+        xy_table = table_map.get(table_name, table_name)
+
+        # valuation → DuckDB daily_basic, indicator → PostgreSQL fina_indicator
+        if xy_table == "daily_basic":
+            from data.storage.factory import get_market_store
+            store = get_market_store("duckdb", read_only=True)
+            try:
+                db_df = store.query("daily_basic")
+                if codes_normalized:
+                    code_filter = ", ".join(f"'{c}'" for c in codes_normalized)
+                    dt_str = dt.isoformat() if hasattr(dt, 'isoformat') else str(dt)
+                    db_df = store.query(f"SELECT * FROM daily_basic WHERE trade_date = '{dt_str}' AND ts_code IN ({code_filter})")
+                if not db_df.empty:
+                    db_df['code'] = db_df['ts_code']
+                return db_df
+            finally:
+                store.close()
+        elif xy_table == "fina_indicator":
+            from data.storage.factory import get_meta_store
+            store = get_meta_store("postgres")
+            try:
+                code_filter = ", ".join(f"'{c}'" for c in codes_normalized) if codes_normalized else "''"
+                dt_str = pd.Timestamp(dt).date()
+                db_df = store.query(f"""
+                    SELECT DISTINCT ON (ts_code)
+                        ts_code, end_date, roe, roa, gross_margin,
+                        raw->>'netprofit_yoy' AS netprofit_yoy,
+                        raw->>'or_yoy' AS or_yoy
+                    FROM fina_indicator
+                    WHERE ts_code IN ({code_filter})
+                      AND end_date <= '{dt_str}'
+                    ORDER BY ts_code, end_date DESC
+                """)
+                if not db_df.empty:
+                    db_df['code'] = db_df['ts_code']
+                # Map field names
+                rename_map = {
+                    "netprofit_yoy": "inc_net_profit_year_on_year",
+                    "or_yoy": "inc_revenue_year_on_year",
+                }
+                db_df = db_df.rename(columns={k: v for k, v in rename_map.items() if k in db_df.columns})
+                return db_df
+            finally:
+                store.close()
+
+        # Fallback: generic xy_api
+        df = xy_api.get_fundamentals(
+            table=xy_table,
+            ts_code=codes_normalized if codes_normalized else [],
+            start_date=dt,
+            end_date=dt,
+            fields=field_list if field_list else None,
+        )
+        if not df.empty and 'ts_code' in df.columns and 'code' not in df.columns:
+            df['code'] = df['ts_code']
+        return df
+
+    # 旧格式 pass-through
     codes = None
     if ts_code is not None:
         codes = [normalize_code(s) for s in ([ts_code] if isinstance(ts_code, str) else ts_code)]
@@ -518,3 +595,183 @@ def get_factor_values(
         result[factor] = df
 
     return result
+
+
+# ====================================================================
+# 聚宽 financial query 适配层
+# 策略代码用的 query(valuation.x).filter(valuation.code.in_(codes)) 格式
+# 这里构建轻量 query DSL 对象，get_fundamentals 接收 query 或 table 名两种方式
+# ====================================================================
+
+class _QueryField:
+    """query() 的参数：table.field。"""
+    def __init__(self, table_name: str, field_name: str):
+        self.table_name = table_name
+        self.field_name = field_name
+
+    def __repr__(self):
+        return f"{self.table_name}.{self.field_name}"
+
+class _QueryFilter:
+    """query() 的返回值。filter() 合并 conditions 后也返回 _QueryFilter。"""
+    def __init__(self, table_name: str, fields: list, conditions: dict = None):
+        self.table_name = table_name
+        self.fields = fields
+        self.conditions = conditions or {}
+
+    def filter(self, *conds):
+        """返回新的 _QueryFilter，合并 conditions。"""
+        merged = dict(self.conditions)
+        for c in conds:
+            if isinstance(c, dict):
+                merged.setdefault("codes", c.get("values", []))
+        return _QueryFilter(self.table_name, self.fields, merged)
+
+class _QueryColumn:
+    """table.col 引用，用于字段选择和 in_ 过滤。"""
+    def __init__(self, table_name: str, column: str):
+        self.table_name = table_name
+        self.column = column
+
+    def in_(self, values):
+        return {"column": self.column, "op": "in", "values": values}
+
+class _QueryTable:
+    """聚宽的 valuation / indicator 等表名对象。"""
+    def __init__(self, name: str):
+        self._name = name
+
+    def __getattr__(self, col: str):
+        return _QueryColumn(self._name, col)
+
+# 全局表对象，策略代码直接引用
+valuation = _QueryTable("valuation")
+indicator = _QueryTable("indicator")
+
+def query(*fields: _QueryColumn) -> _QueryFilter:
+    """聚宽 query() 函数。根据 fields 自动推断表名。"""
+    table_names = set(f.table_name for f in fields)
+    if len(table_names) != 1:
+        raise ValueError(f"query() 字段必须来自同一张表，got: {table_names}")
+    table = table_names.pop()
+    return _QueryFilter(table, list(fields))
+
+def _build_fields_list(fields):
+    """把聚宽的 valuation.xxx / indicator.yyy 字段名映射到字段名列表"""
+    result = []
+    for f in fields:
+        if isinstance(f, _QueryColumn):
+            result.append(f.column)
+        elif isinstance(f, str):
+            result.append(f)
+        elif hasattr(f, 'field_name'):
+            result.append(f.field_name)
+        else:
+            result.append(str(f))
+    return result
+
+
+# ====================================================================
+# 重写 get_fundamentals，兼容 聚宽 query 对象 和 旧 table str 两种调用
+# ====================================================================
+
+def get_fundamentals(
+    query_obj=None,
+    table: str | None = None,
+    ts_code: str | list[str] | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
+    fields: list[str] | None = None,
+    date: date | None = None,
+) -> pd.DataFrame:
+    """
+    获取基本面数据。兼容两种调用方式：
+
+    1. 聚宽格式：get_fundamentals(query(...).filter(...), date=date)
+       query_obj 是 _QueryFilter，内含 table_name, fields, conditions
+
+    2. 旧格式：get_fundamentals(table='daily_basic', ts_code=..., ...)
+    """
+    # 聚宽格式：query object
+    if query_obj is not None and hasattr(query_obj, 'table_name'):
+        table_name = query_obj.table_name
+        # get_fundamentals date= 也映射为 end_date
+        dt = date or end_date or datetime.now().date()
+        codes = query_obj.conditions.get("codes", []) if hasattr(query_obj, 'conditions') else []
+        if codes is None:
+            codes = []
+        if isinstance(codes, str):
+            codes = [codes]
+        codes_normalized = [normalize_code(c) for c in codes]
+
+        field_list = _build_fields_list(query_obj.fields) if hasattr(query_obj, 'fields') else (fields or [])
+
+        # 映射到 xy_quant: valuation → daily_basic, indicator → fina_indicator
+        table_map = {
+            "valuation": "daily_basic",
+            "indicator": "fina_indicator",
+        }
+        xy_table = table_map.get(table_name, table_name)
+
+        # daily_basic → DuckDB market store
+        if xy_table == "daily_basic":
+            from data.storage.factory import get_market_store
+            store = get_market_store("duckdb", read_only=True)
+            try:
+                dt_str = pd.Timestamp(dt).date()
+                if codes_normalized:
+                    code_filter = ", ".join(f"'{c}'" for c in codes_normalized)
+                    sql = f"SELECT * FROM daily_basic WHERE trade_date = '{dt_str}' AND ts_code IN ({code_filter})"
+                else:
+                    sql = f"SELECT * FROM daily_basic WHERE trade_date = '{dt_str}'"
+                db_df = store.query(sql)
+                if not db_df.empty and 'ts_code' in db_df.columns:
+                    db_df['code'] = db_df['ts_code']
+                return db_df
+            finally:
+                store.close()
+
+        # fina_indicator → PostgreSQL meta store
+        if xy_table == "fina_indicator":
+            from data.storage.factory import get_meta_store
+            store = get_meta_store("postgres")
+            try:
+                dt_str = pd.Timestamp(dt).date()
+                code_filter = ", ".join(f"'{c}'" for c in codes_normalized) if codes_normalized else "''"
+                sql = f"""
+                    SELECT DISTINCT ON (ts_code) ts_code, end_date, roe, roa, gross_margin,
+                        raw->>'netprofit_yoy' AS netprofit_yoy, raw->>'or_yoy' AS or_yoy
+                    FROM fina_indicator WHERE ts_code IN ({code_filter}) AND end_date <= '{dt_str}'
+                    ORDER BY ts_code, end_date DESC
+                """
+                db_df = store.query(sql)
+                if not db_df.empty:
+                    db_df['code'] = db_df['ts_code']
+                return db_df
+            finally:
+                store.close()
+
+        # fallback for other tables
+        df = xy_api.get_fundamentals(
+            table=xy_table,
+            ts_code=codes_normalized if codes_normalized else [],
+            start_date=dt,
+            end_date=dt,
+            fields=field_list if field_list else None,
+        )
+        # 统一代码列名
+        if not df.empty and 'ts_code' in df.columns and 'code' not in df.columns:
+            df['code'] = df['ts_code']
+        return df
+
+    # 旧格式 pass-through
+    codes = None
+    if ts_code is not None:
+        codes = [normalize_code(s) for s in ([ts_code] if isinstance(ts_code, str) else ts_code)]
+    return xy_api.get_fundamentals(
+        table=table,
+        ts_code=codes or [],
+        start_date=start_date,
+        end_date=end_date,
+        fields=fields,
+    )

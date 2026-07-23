@@ -1,17 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-LightGBM 滚动训练多因子小市值策略 — 本地适配版
+LightGBM 滚动训练多因子小市值策略
 原策略：https://www.joinquant.com/post/75981
 作者：夹头宝典（原版）
-适配：xy_quant JQ 引擎（jq_adapter + DuckDB + PostgreSQL）
 
-聚宽 API 由 engine/api.py 注入，本文件仅 import 科学计算库。
-策略核心逻辑与原版完全一致。
+本文件为纯聚宽策略代码。所有本地数据适配在 jq_adapter/ 中完成，
+策略代码不做任何平台判断。
 """
 
-# ====================================================================
-# 外部依赖（非聚宽注入的库）
-# ====================================================================
 import numpy as np
 import pandas as pd
 import warnings
@@ -27,84 +23,6 @@ try:
 except ImportError:
     LGBM_AVAILABLE = False
     from sklearn.ensemble import GradientBoostingClassifier
-
-# ====================================================================
-# 本地数据辅助函数（直接查询 DuckDB / PostgreSQL）
-# ====================================================================
-
-def _query_daily_basic(codes, date):
-    """从 DuckDB daily_basic 获取估值数据（PE/PB/PS/市值/换手率）。
-    返回 DataFrame(index=code, columns=[market_cap, pe_ratio, pb_ratio, ps_ratio, turnover_ratio])
-    """
-    import duckdb
-    from pathlib import Path
-    import sys
-
-    if not codes:
-        return pd.DataFrame()
-    db_path = Path('/Volumes/quant-ssd/projects/xy_quant') / "data_store" / "market.duckdb"
-    conn = duckdb.connect(str(db_path), read_only=True)
-    try:
-        code_list = ", ".join(f"'{c}'" for c in codes)
-        df = conn.execute(f"""
-            SELECT ts_code, pe_ttm, pb, ps_ttm, total_mv, circ_mv, turnover_rate
-            FROM daily_basic
-            WHERE ts_code IN ({code_list})
-              AND trade_date = ?
-        """, [pd.Timestamp(date).date()]).fetchdf()
-        if df.empty:
-            return pd.DataFrame(index=codes)
-        df = df.set_index("ts_code")
-        df.rename(columns={
-            "pe_ttm": "pe_ratio",
-            "pb": "pb_ratio",
-            "ps_ttm": "ps_ratio",
-            "total_mv": "market_cap",
-            "turnover_rate": "turnover_ratio",
-        }, inplace=True)
-        return df
-    finally:
-        conn.close()
-
-
-def _query_fina_indicator(codes, date):
-    """从 PostgreSQL fina_indicator 获取财务指标（ROE/ROA/毛利/利润增速/营收增速）。
-    取 end_date <= date 的最新一条记录。
-    返回 DataFrame(index=code, columns=[roe, roa, gross_profit_margin, inc_net_profit_year_on_year, inc_revenue_year_on_year])
-    """
-    if not codes:
-        return pd.DataFrame()
-    from data.storage.factory import get_meta_store
-
-    store = get_meta_store("postgres")
-    try:
-        code_list = ", ".join(f"'{c}'" for c in codes)
-        df = store.query(f"""
-            SELECT DISTINCT ON (ts_code)
-                ts_code, end_date, roe, roa, gross_margin,
-                raw->>'netprofit_yoy' AS netprofit_yoy,
-                raw->>'or_yoy' AS or_yoy
-            FROM fina_indicator
-            WHERE ts_code IN ({code_list})
-              AND end_date <= '{pd.Timestamp(date).date()}'
-            ORDER BY ts_code, end_date DESC
-        """)
-        if df.empty:
-            return pd.DataFrame(index=codes)
-        df = df.set_index("ts_code")
-        df.rename(columns={
-            "gross_margin": "gross_profit_margin",
-            "netprofit_yoy": "inc_net_profit_year_on_year",
-            "or_yoy": "inc_revenue_year_on_year",
-        }, inplace=True)
-        # 转换为 float
-        for col in ["roe", "roa", "gross_profit_margin",
-                     "inc_net_profit_year_on_year", "inc_revenue_year_on_year"]:
-            if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors="coerce")
-        return df
-    finally:
-        store.close()
 
 
 # ====================================================================
@@ -145,7 +63,7 @@ class Config:
         'colsample_bytree': 0.6,
         'reg_alpha': 0.1,
         'reg_lambda': 0.5,
-        'n_estimators': 50,                    # 回测优化：100棵树
+        'n_estimators': 50,
         'random_state': 42,
         'verbosity': -1,
         'n_jobs': -1,
@@ -189,24 +107,36 @@ def get_small_cap_stocks(stock_list, date, cap_limit=Config.MARKET_CAP_LIMIT):
     if not result:
         return []
 
-    df = _query_daily_basic(result, date)
+    df = get_fundamentals(
+        query(
+            valuation.code,
+            valuation.pe_ratio,
+            valuation.pb_ratio,
+            valuation.ps_ratio,
+            valuation.market_cap,
+            valuation.turnover_ratio,
+        ).filter(
+            valuation.code.in_(result)
+        ), date=date
+    )
     if df.empty or 'market_cap' not in df.columns:
         return []
 
+    df = df.set_index("code")
     small = df[df['market_cap'].notna() & (df['market_cap'] < cap_limit)]
     return small.index.tolist()
 
 
 # ====================================================================
-# 因子数据获取（适配版：jqfactor → 本地计算 + daily_basic + fina_indicator + get_price）
+# 因子数据获取
 # ====================================================================
 
 def get_all_factor_data(securities_list, date):
-    """统一的因子数据获取（适配本地数据源）:
-      1. jqfactor（仅 VOL240 可计算，其余 3 个为 NaN）
-      2. daily_basic（估值+换手）
-      3. fina_indicator（质量+成长）
-      4. 自定义计算 — 动量(MOM系列) + VOL20 + RSI12 → get_price
+    """统一的因子数据获取:
+      1. jqfactor（聚宽因子）
+      2. valuation（估值+换手）
+      3. indicator（质量+成长）
+      4. 自定义计算 — 动量(MOM系列) + VOL20 + RSI12
     返回合并后的 DataFrame
     """
     if not securities_list:
@@ -214,7 +144,7 @@ def get_all_factor_data(securities_list, date):
 
     df_all = pd.DataFrame(index=securities_list)
 
-    # ========== 1. jqfactor（仅 VOL240 有本地实现） ==========
+    # ========== 1. jqfactor ==========
     try:
         jq_data = get_factor_values(
             securities=securities_list,
@@ -226,25 +156,49 @@ def get_all_factor_data(securities_list, date):
     except Exception as e:
         log.warning("jqfactor 获取失败: %s" % str(e)[:80])
 
-    # ========== 2. daily_basic 估值数据（PE/PB/PS/换手率） ==========
+    # ========== 2. valuation 估值数据（PE/PB/PS/换手率） ==========
     try:
-        fund_val = _query_daily_basic(securities_list, date)
+        fund_val = get_fundamentals(
+            query(
+                valuation.code,
+                valuation.pe_ratio,
+                valuation.pb_ratio,
+                valuation.ps_ratio,
+                valuation.market_cap,
+                valuation.turnover_ratio,
+            ).filter(
+                valuation.code.in_(securities_list)
+            ), date=date
+        )
         if not fund_val.empty:
+            fund_val = fund_val.set_index("code")
             for col in g.fund_val_cols:
                 if col in fund_val.columns:
                     df_all[col] = fund_val[col].astype(float)
     except Exception as e:
-        log.warning("daily_basic 估值数据获取失败: %s" % str(e)[:80])
+        log.warning("valuation 估值数据获取失败: %s" % str(e)[:80])
 
-    # ========== 3. fina_indicator 质量数据（ROE/ROA/毛利/利润增速/营收增速） ==========
+    # ========== 3. indicator 质量数据（ROE/ROA/毛利/利润增速/营收增速） ==========
     try:
-        fund_ind = _query_fina_indicator(securities_list, date)
+        fund_ind = get_fundamentals(
+            query(
+                indicator.code,
+                indicator.roe,
+                indicator.roa,
+                indicator.gross_profit_margin,
+                indicator.inc_net_profit_year_on_year,
+                indicator.inc_revenue_year_on_year,
+            ).filter(
+                indicator.code.in_(securities_list)
+            ), date=date
+        )
         if not fund_ind.empty:
+            fund_ind = fund_ind.set_index("code")
             for col in g.fund_ind_cols:
                 if col in fund_ind.columns:
                     df_all[col] = fund_ind[col].astype(float)
     except Exception as e:
-        log.warning("fina_indicator 获取失败: %s" % str(e)[:80])
+        log.warning("indicator 获取失败: %s" % str(e)[:80])
 
     # ========== 4. 自定义计算：动量 + VOL20 + RSI12 ==========
     try:
@@ -260,7 +214,6 @@ def get_all_factor_data(securities_list, date):
             if 'trade_date' in price_df.columns:
                 price_df = price_df.sort_values(['code', 'trade_date'])
 
-            # ---- vectorized metrics per stock (no loop-body .loc) ----
             metrics_rows = []
             for stock, group in price_df.groupby('code'):
                 closes = group['close'].values
@@ -285,26 +238,23 @@ def get_all_factor_data(securities_list, date):
                 if row:
                     metrics_rows.append((stock, row))
 
-            # ---- single bulk update (one concat + join, zero per-row .loc) ----
             if metrics_rows:
                 idx, rows = zip(*metrics_rows)
                 computed = pd.DataFrame(list(rows), index=list(idx))
                 for col in computed.columns:
                     df_all[col] = np.nan
-                computed = computed.reindex(df_all.index)   # align to df_all
+                computed = computed.reindex(df_all.index)
                 for col in computed.columns:
                     df_all[col] = computed[col]
     except Exception as e:
         log.warning("自定义因子计算失败: %s" % str(e)[:80])
 
-    # 确保所有因子列都存在（缺失的填 NaN，后续预处理会 fillna）
+    # 确保所有因子列都存在
     for col in g.all_factor_cols:
         if col not in df_all.columns:
             df_all[col] = np.nan
         else:
             df_all[col] = pd.to_numeric(df_all[col], errors='coerce')
-    # Enforce uniform numeric dtype for the whole frame to prevent
-    # pandas maybe_convert_objects → pyarrow overhead downstream
     return df_all[g.all_factor_cols].astype(np.float64)
 
 
@@ -327,7 +277,6 @@ def get_stock_pool2(stock_list, raw_date, min_amount=Config.MIN_DAILY_AMOUNT):
         return []
 
     # 过滤涨跌停(±9.5%) + 停牌(vol==0)
-    # daily_bar 没有 high_limit/low_limit/paused, 使用 pre_close 近似
     df_price = get_price(
         security=stock_list, frequency='daily', end_date=date, count=2,
         fields=['close', 'open', 'vol', 'pre_close'], panel=False)
@@ -396,20 +345,25 @@ def neutralize_factors(df, stocks, date):
     if df.empty or len(df) < 30:
         return df
     try:
-        # 获取市值（从 daily_basic）
-        mcap_df = _query_daily_basic(list(df.index), date)
+        # 获取市值（从 valuation）
+        mcap_df = get_fundamentals(
+            query(
+                valuation.code,
+                valuation.market_cap,
+            ).filter(
+                valuation.code.in_(list(df.index))
+            ), date=date
+        )
         if mcap_df.empty or 'market_cap' not in mcap_df.columns:
             return df
+        mcap_df = mcap_df.set_index("code")
         mcap_df['ln_mcap'] = np.log(mcap_df['market_cap'])
         df = df.join(mcap_df['ln_mcap'], how='inner')
 
         # 获取行业
         try:
-            from jq_adapter.utils import normalize_code
-            codes_normalized = [normalize_code(c) if '.' not in c else c for c in df.index]
             ind_dict = get_industry(list(df.index), date=date)
             if ind_dict:
-                # 提取 sw_l1 行业名；若无则用 sw_l2
                 industry_map = {}
                 for code, info in ind_dict.items():
                     for level in ('sw_l1', 'sw_l2'):
@@ -432,11 +386,9 @@ def neutralize_factors(df, stocks, date):
 
         X_neut = pd.concat([ind_dummies, df['ln_mcap']], axis=1).fillna(0)
 
-        # 对每个因子做回归取残差（批量 OLS，避免逐列 LinearRegression）
         factor_cols = [c for c in df.columns if c in g.all_factor_cols]
         if not factor_cols:
             return df
-        # 用 numpy lstsq 一次解所有因子
         y_mat = pd.DataFrame({c: pd.to_numeric(df[c], errors='coerce') for c in factor_cols},
                              index=df.index)
         y_mat = y_mat.fillna(y_mat.median())
@@ -445,17 +397,13 @@ def neutralize_factors(df, stocks, date):
             return df[g.all_factor_cols]
         X = X_neut.loc[mask].values.astype(np.float64)
         Y = y_mat.loc[mask].values.astype(np.float64)
-        # OLS: beta = (X^T X)^-1 X^T Y, residuals = Y - X beta
         try:
             beta, _, _, _ = np.linalg.lstsq(X, Y, rcond=None)
             residuals = Y - X @ beta
         except np.linalg.LinAlgError:
             return df[g.all_factor_cols]
-        # residuals into a DataFrame, then reindex to original
         resid_df = pd.DataFrame(residuals, index=y_mat.loc[mask].index, columns=factor_cols)
-        # columns not in the original mask remain NaN (unfillable)
         df_neut = resid_df.reindex(df.index)
-        # fill any remaining NaN with original values
         for c in factor_cols:
             df_neut[c] = df_neut[c].fillna(df[c])
         return df_neut
@@ -472,30 +420,23 @@ def preprocess_factors(df, stocks, date, scaler=None, fit_scaler=False):
     if not factor_cols:
         return df, scaler
 
-    # Step 1: MAD 去极值
     df_clean = mad_outlier(df[factor_cols], n=3)
-
-    # Step 2: 行业 + 市值中性化
     df_neut = neutralize_factors(df_clean, stocks, date)
 
-    # Step 3: 中位数填充缺失值 + 剔除 inf
     df_filled = df_neut.copy()
     numeric = df_filled.select_dtypes(include=[np.number])
     medians = numeric.median()
     numeric = numeric.fillna(medians).clip(numeric.min(), numeric.max(), axis=1)
-    # Put back non-numeric columns unchanged
     for c in df_filled.columns:
         if c in numeric.columns:
             df_filled[c] = numeric[c]
         else:
             df_filled[c] = pd.to_numeric(df_filled[c], errors='coerce').fillna(0).clip(lower=df_filled[c].quantile(0.01) if not pd.isna(df_filled[c].quantile(0.01)) else None)
 
-    # 检查是否所有列都是全 NaN 或全相同值
     std_check = df_filled.std()
     if (std_check == 0).all():
         return df_filled, scaler
 
-    # Step 4: 标准化
     if fit_scaler or scaler is None:
         scaler = StandardScaler()
         scaled = scaler.fit_transform(df_filled)
@@ -514,17 +455,17 @@ def preprocess_factors(df, stocks, date, scaler=None, fit_scaler=False):
 def build_train_dates(context):
     """构建训练采样日期列表"""
     cfg = Config()
-    total_days = cfg.TRAIN_YEARS * 250
+    total_days = int(cfg.TRAIN_YEARS * 250)
     all_dates = get_trade_days(
         end_date=context.previous_date, count=total_days)
     all_dates = list(reversed(all_dates))
     date_list = all_dates[::cfg.SAMPLE_INTERVAL]
-    date_list = list(reversed(date_list))  # 从早到晚
+    date_list = list(reversed(date_list))
     return date_list
 
 
 def build_label(stock_list, current_date, horizon_date):
-    """计算涨跌幅标签（适配扁平 DataFrame 格式）"""
+    """计算涨跌幅标签"""
     if not stock_list:
         return None
     try:
@@ -542,6 +483,7 @@ def build_label(stock_list, current_date, horizon_date):
     except Exception:
         return None
 
+
 def create_training_samples(context):
     """滚动构建训练样本"""
     cfg = Config()
@@ -556,35 +498,30 @@ def create_training_samples(context):
 
     for i, date in enumerate(date_list[:-1]):
         if i % 3 == 0:
-            log.info(f"  采样: {i+1}/{len(date_list)-1}"); import sys; sys.stdout.flush()
+            log.info(f"  采样: {i+1}/{len(date_list)-1}")
         next_date = date_list[i + 1]
 
         S_all = get_all_securities(types=['stock'], date=date)
         if S_all.empty:
             continue
         S_all = S_all.index.tolist()
-        # 过滤科创北交
         S_all = [s for s in S_all if not (s.startswith('4') or s.startswith('8') or s.startswith('688'))]
         S_small = get_small_cap_stocks(S_all, date, cfg.MARKET_CAP_LIMIT)
-        # 限制候选数加速采样
         if len(S_small) > cfg.MAX_SAMPLE_DAYS_PER_SNAPSHOT:
             import random
             S_small = random.sample(S_small, cfg.MAX_SAMPLE_DAYS_PER_SNAPSHOT)
         if len(S_small) < 80:
             continue
 
-        # 获取因子数据（含 jqfactor + daily_basic + fina_indicator + 自定义动量）
         factor_raw = get_all_factor_data(S_small, date)
         if factor_raw.empty or len(factor_raw) < 50:
             continue
 
-        # 预处理（fit_scaler=True，每个时间截面独立 scale）
         factor_processed, _ = preprocess_factors(
             factor_raw, S_small, date, fit_scaler=True)
         if factor_processed.empty:
             continue
 
-        # 计算标签
         pchg = build_label(S_small, date, next_date)
         if pchg is None:
             continue
@@ -593,7 +530,6 @@ def create_training_samples(context):
             factor_processed.index.isin(pchg.index)]
         pchg = pchg.loc[factor_processed.index]
 
-        # 构建正负样本
         factor_processed['pchg'] = pchg.values
         factor_processed = factor_processed.sort_values(
             by='pchg', ascending=True)
@@ -614,7 +550,6 @@ def create_training_samples(context):
 
         this_period = pd.concat([neg, pos])
 
-        # 样本权重：距现在越近权重越大
         days_ago = (current_date - date).days
         weight = np.exp(-cfg.SAMPLE_DECAY * days_ago / 365)
         this_period['sample_weight'] = weight
@@ -712,13 +647,15 @@ def get_stock_list(context):
 
     # ---------- 1. 训练 ----------
     log.info("开始滚动训练...")
-    log.info("开始滚动训练...")
-    log.info("开始创建训练样本..."); X, y, sw = create_training_samples(context)
+    log.info("开始创建训练样本...")
+    X, y, sw = create_training_samples(context)
     if X is not None:
         log.info("训练数据: X=%s, y=%s, 正样本=%.0f%%, 负样本=%.0f%%" % (
             str(X.shape), str(y.shape),
             y.mean() * 100, (1 - y.mean()) * 100))
-    log.info("开始训练 LightGBM..."); model = train_lightgbm(X, y, sw); log.info("LightGBM 训练完成")
+    log.info("开始训练 LightGBM...")
+    model = train_lightgbm(X, y, sw)
+    log.info("LightGBM 训练完成")
     if model is None:
         log.warning("模型训练失败，本次不交易")
         return []
@@ -745,14 +682,14 @@ def get_stock_list(context):
         return []
 
     # ---------- 3. 预处理预测 ----------
-    log.info(f"获取因子数据: {len(small_cap_list)} 只股票"); import sys; sys.stdout.flush()
+    log.info(f"获取因子数据: {len(small_cap_list)} 只股票")
     df = get_all_factor_data(small_cap_list, yesterday)
     log.info(f"因子数据获取完成: {len(df)} 行")
     if df.empty:
         return []
 
-    log.info(f"预测阶段: {len(df)} 只候选股"); df_processed, _ = preprocess_factors(df, small_cap_list, yesterday,
-                                           fit_scaler=True)
+    df_processed, _ = preprocess_factors(
+        df, small_cap_list, yesterday, fit_scaler=True)
     X_test = df_processed.values
 
     # ---------- 4. 模型集成预测 ----------
@@ -812,14 +749,23 @@ def get_stock_list(context):
 
     # 不够则从剩余按市值补
     if len(target_list) < cfg.STOCK_NUM:
-        mcap_df = _query_daily_basic(lst, yesterday)
-        remaining = [s for s in lst
-                     if s not in target_list and s in mcap_df.index]
-        if remaining and 'market_cap' in mcap_df.columns:
-            df_rem = mcap_df.loc[remaining].sort_values('market_cap')
-            extra = df_rem.index.tolist()[
-                :cfg.STOCK_NUM - len(target_list)]
-            target_list.extend(extra)
+        mcap_df = get_fundamentals(
+            query(
+                valuation.code,
+                valuation.market_cap,
+            ).filter(
+                valuation.code.in_(lst)
+            ), date=yesterday
+        )
+        if not mcap_df.empty and 'market_cap' in mcap_df.columns:
+            mcap_df = mcap_df.set_index("code")
+            remaining = [s for s in lst
+                         if s not in target_list and s in mcap_df.index]
+            if remaining:
+                df_rem = mcap_df.loc[remaining].sort_values('market_cap')
+                extra = df_rem.index.tolist()[
+                    :cfg.STOCK_NUM - len(target_list)]
+                target_list.extend(extra)
 
     return target_list
 
@@ -841,7 +787,7 @@ def prepare_stock_list(context):
             count=1, panel=False, fill_paused=False)
         if 'pre_close' in df.columns:
             df['high_limit_est'] = df['pre_close'] * 1.10
-            df = df[df['close'] >= df['high_limit_est'] * 0.995]  # ≥9.9%涨停
+            df = df[df['close'] >= df['high_limit_est'] * 0.995]
         g.yesterday_HL_list = list(df.code)
     else:
         g.yesterday_HL_list = []
@@ -916,7 +862,6 @@ def check_limit_up(context):
         return
     hl_list = g.yesterday_HL_list
 
-    # 批量拉取一次 DB，不再逐只股票 get_price
     price_map = {}
     try:
         prices_df = get_price(
@@ -954,7 +899,6 @@ def check_stop_loss(context):
     if not active:
         return
 
-    # 批量获取所有持仓股的当天 close（一次 DB 查询）
     price_map = {}
     try:
         prices_df = get_price(
@@ -990,7 +934,7 @@ def check_stop_loss(context):
 
 
 # ====================================================================
-# 交易执行（使用引擎注入的 order_target_value / OrderStatus）
+# 交易执行
 # ====================================================================
 
 def order_target_value_(security, value):
@@ -1004,7 +948,6 @@ def order_target_value_(security, value):
 def open_position(security, value):
     order = order_target_value_(security, value)
     if order is not None:
-        # engine account.py returns dict: {"filled": ...}
         if isinstance(order, dict):
             return order.get("shares", 0) > 0
         return order.filled > 0 if hasattr(order, 'filled') else bool(order)
@@ -1015,11 +958,9 @@ def close_position(position):
     security = position.security
     order = order_target_value_(security, 0)
     if order is not None:
-        # engine returns dict or object
         if isinstance(order, dict):
-            return True  # sell order accepted
+            return True
         return True
-    return False
     return False
 
 
@@ -1050,18 +991,18 @@ def initialize(context):
     g.market_bearish = False
 
     # ----- 因子配置 -----
-    # ① jqfactor（仅 4 个——原版已验证的因子名，本地仅 VOL240 可算）
+    # ① jqfactor（仅 4 个——原版已验证的因子名）
     g.jqfactor_list = [
-        'financial_liability',          # 金融负债
-        'VOL240',                       # 240日波动率
-        'administration_expense_ttm',   # 管理费用 TTM
-        'liquidity',                    # 流动性
+        'financial_liability',
+        'VOL240',
+        'administration_expense_ttm',
+        'liquidity',
     ]
 
-    # ② fundamentals：daily_basic 表（估值 + 换手）
+    # ② fundamentals：valuation 表（估值 + 换手）
     g.fund_val_cols = ['pe_ratio', 'pb_ratio', 'ps_ratio', 'turnover_ratio']
 
-    # ③ fundamentals：fina_indicator 表（质量 + 成长）
+    # ③ fundamentals：indicator 表（质量 + 成长）
     g.fund_ind_cols = ['roe', 'roa', 'gross_profit_margin',
                        'inc_net_profit_year_on_year',
                        'inc_revenue_year_on_year']
