@@ -1,6 +1,6 @@
 # xy_quant 量化交易系统
 
-> 最后更新：2026-07-23 17:00
+> 最后更新：2026-07-23 22:00
 > 项目路径：/Volumes/quant-ssd/projects/xy_quant
 > Python 环境：.venv/bin/python (3.14)
 > 数据库：DuckDB (data_store/market.duckdb) + PostgreSQL (Docker quant_postgres:55432)
