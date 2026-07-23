@@ -313,8 +313,8 @@ def get_all_factor_data(securities_list, date):
             panel=False,
             fill_paused=False)
         if price_df is not None and not price_df.empty:
-            if 'trade_date' in price_df.columns:
-                price_df = price_df.sort_values(['code', 'trade_date'])
+            date_col = 'trade_date' if 'trade_date' in price_df.columns else 'date'
+            price_df = price_df.sort_values(['code', date_col])
 
             # ---- vectorized metrics per stock (no loop-body .loc) ----
             metrics_rows = []
@@ -390,7 +390,8 @@ def get_stock_pool2(stock_list, raw_date, min_amount=Config.MIN_DAILY_AMOUNT):
     if df_price.empty:
         return []
     # 每只股票取最新的那行
-    latest = df_price.sort_values('trade_date').groupby('code').tail(1)
+    date_col = 'trade_date' if 'trade_date' in df_price.columns else 'date'
+    latest = df_price.sort_values(date_col).groupby('code').tail(1)
     latest['high_limit_est'] = latest['pre_close'] * 1.10
     latest['low_limit_est'] = latest['pre_close'] * 0.90
     stock_list = latest.query(
@@ -580,7 +581,7 @@ def build_train_dates(context):
         prev = context.previous_date
         if hasattr(prev, 'date'):
             prev = prev.date()
-        # 往前取足够多的 bar，从中提取 trade_date
+        # 往前取足够多的 bar，从中提取交易日
         idx_df = get_price(
             '000001.XSHG',
             end_date=prev,
@@ -591,7 +592,9 @@ def build_train_dates(context):
         )
         if idx_df.empty:
             return []
-        all_dates_arr = sorted(idx_df['trade_date'].unique().tolist())
+        # 聚宽 get_price(panel=False) 日期列叫 date，xy_quant 叫 trade_date
+        dt_col = 'trade_date' if 'trade_date' in idx_df.columns else 'date'
+        all_dates_arr = sorted(idx_df[dt_col].unique().tolist())
         all_dates = all_dates_arr[-total_days:]
 
     all_dates = list(reversed(all_dates))
@@ -610,9 +613,11 @@ def build_label(stock_list, current_date, horizon_date):
             '1d', ['close'])
         if data_close.empty:
             return None
+        # 兼容 xy_quant (trade_date) 和聚宽 (date) 的列名差异
+        date_col = 'trade_date' if 'trade_date' in data_close.columns else 'date'
         pchg = pd.Series(index=stock_list, dtype=float)
         for code in data_close['code'].unique():
-            cdata = data_close[data_close['code'] == code].sort_values('trade_date')
+            cdata = data_close[data_close['code'] == code].sort_values(date_col)
             if len(cdata) >= 2:
                 pchg.loc[code] = cdata['close'].iloc[-1] / cdata['close'].iloc[0] - 1
         return pchg.dropna()
