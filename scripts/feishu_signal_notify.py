@@ -69,7 +69,7 @@ def get_tenant_token() -> str:
 
 def fetch_signals(target_date: str) -> dict:
     """Fetch buy signals from daily_signals for a single date."""
-    db = duckdb.connect(settings.duckdb_path, read_only=True)
+    db = duckdb.connect(str(settings.duckdb_path_abs), read_only=True)
     try:
         td = f"{target_date[:4]}-{target_date[4:6]}-{target_date[6:]}"
         cols = [desc[0] for desc in db.execute("DESCRIBE daily_signals").fetchall()]
@@ -320,7 +320,7 @@ def run(
 
     # Default to latest signals date
     if not target_date:
-        db = duckdb.connect(settings.duckdb_path, read_only=True)
+        db = duckdb.connect(str(settings.duckdb_path_abs), read_only=True)
         try:
             row = db.execute("SELECT MAX(date) FROM daily_signals").fetchone()
             if not row or not row[0]:

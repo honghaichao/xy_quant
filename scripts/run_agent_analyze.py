@@ -48,7 +48,7 @@ def main():
     logger.info(f"Agent 批量分析开始: {trade_date_fmt} limit={args.limit}")
 
     # 获取当天有信号的股票（优先当前有效的策略）
-    conn = duckdb.connect(str(settings.duckdb_path), read_only=True)
+    conn = duckdb.connect(str(settings.duckdb_path_abs), read_only=True)
     try:
         # 优先 B2/BLKB2/DZ30 的信号
         from datetime import date as ddate
@@ -71,7 +71,7 @@ def main():
         if codes:
             from datetime import date as ddate
             query_date = ddate(int(trade_date[:4]), int(trade_date[4:6]), int(trade_date[6:]))
-            conn2 = duckdb.connect(str(settings.duckdb_path), read_only=True)
+            conn2 = duckdb.connect(str(settings.duckdb_path_abs), read_only=True)
             try:
                 code_filter = ", ".join(f"'{c}'" for c in codes)
                 scores_df = conn2.execute(f"""

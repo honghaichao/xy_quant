@@ -21,7 +21,7 @@ class ResultAdapter:
     def __init__(self, db_path: str | None = None):
         if db_path is None:
             from config.settings import settings
-            self._db_path = str(settings.duckdb_path)
+            self._db_path = str(settings.duckdb_path_abs)
         else:
             self._db_path = db_path
         self._ensure_table()
@@ -227,7 +227,7 @@ def get_daily_agent_decisions(trade_date: str, db_path: str | None = None) -> di
 
     if db_path is None:
         from config.settings import settings
-        db_path = str(settings.duckdb_path)
+        db_path = str(settings.duckdb_path_abs)
 
     conn = duckdb.connect(db_path, read_only=True)
     try:

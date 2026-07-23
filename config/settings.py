@@ -19,6 +19,15 @@ class Settings(BaseSettings):
 
     tushare_token: str = ""
     duckdb_path: str = "./data_store/market.duckdb"
+
+    @property
+    def duckdb_path_abs(self) -> Path:
+        """返回 DuckDB 绝对路径。project_root 为 config 目录上级。"""
+        p = Path(self.duckdb_path)
+        if p.is_absolute():
+            return p
+        project_root = Path(__file__).resolve().parents[1]
+        return (project_root / p).resolve()
     pg_host: str = "localhost"
     pg_port: int = 5432
     pg_user: str = "quant"

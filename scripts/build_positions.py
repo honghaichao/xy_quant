@@ -37,7 +37,7 @@ logger = get_logger("build_positions")
 
 _cfg = get_trading_config()
 
-DB_PATH = str(Path(settings.duckdb_path))
+DB_PATH = str(settings.duckdb_path_abs)
 INIT_CASH = _cfg.initial_cash
 FEE_RATE = _cfg.fee_rate           # 万五手续费
 MAX_POSITIONS = _cfg.max_positions # 单日最大持仓数
