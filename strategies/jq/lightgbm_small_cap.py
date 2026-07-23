@@ -658,6 +658,9 @@ def build_train_dates(context):
     all_dates = list(reversed(all_dates))
     date_list = all_dates[::cfg.SAMPLE_INTERVAL]
     date_list = list(reversed(date_list))  # 从早到晚
+
+    # 统一转为 datetime.date，聚宽 get_all_securities / get_price 只接受这个类型
+    date_list = [pd.Timestamp(d).date() for d in date_list]
     return date_list
 
 
