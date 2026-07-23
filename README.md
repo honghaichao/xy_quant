@@ -1,6 +1,6 @@
 # xy_quant 量化交易系统
 
-> 最后更新：2026-07-17 02:30
+> 最后更新：2026-07-23 14:00
 > 项目路径：/Volumes/quant-ssd/projects/xy_quant
 > Python 环境：.venv/bin/python (3.14)
 > 数据库：DuckDB (data_store/market.duckdb) + PostgreSQL (Docker quant_postgres:55432)
@@ -34,7 +34,7 @@
 | `backtest_performance` | 8 | 2025-07-14 ~ 2026-07-14 | 🟡 B1 回测 |
 | `backtest_trades` | 3,219 | 2025-07-14 ~ 2026-07-14 | 🟡 有数据 |
 | `backtest_daily_pnl` | 1,770 | 2025-07-14 ~ 2026-07-14 | 🟡 有数据 |
-| `strategy_registry` | 7 | — | ✅ 7 策略已注册 |
+| `strategy_registry` | 8 | — | ✅ 8 策略已注册 |
 | `positions` | 10 | 2026-07-14 | ✅ 信号→建仓自动 |
 | `portfolio_daily` | 0 | — | 🔴 待填充 |
 | `agent_analysis_results` | 0 | — | 🔴 从未跑过 |
@@ -56,7 +56,7 @@
 | **utils/** | ✅ 完整 | logger / rate_limiter / retry / exception / calendar / feishu_image |
 | **signals/** | ✅ 完整 | 7 策略信号: B1/B2/BLK/BLKB2/SCB/DZ30 + S1 卖出, 全市场 22min |
 | **backtest/** | 🟡 已验证 | Backtrader 引擎 + B1 回测脚本, 7 只股票回测已跑 |
-| **strategies/** | ✅ 就位 | 策略注册表 (已接入 DuckDB) + BaseStrategy + PortfolioStrategy 基类 |
+| **strategies/** | ✅ 就位 | 策略注册表 (已接入 DuckDB) + BaseStrategy + PortfolioStrategy 基类 + JQ 引擎 (聚宽格式) + LightGBM 滚动训练 |
 | **agent/** | 🟡 代码就位 | 49 .py 多 Agent 辩论系统 (DeepSeek/MiniMax), 从未端到端验证 |
 | **web/** | 🟡 代码就位 | Flask 35 路由 + Vue 3 Dashboard, 前端 dist 完整 |
 | **trading/** | ✅ 就位 | 持仓管理 + 每日净值, positions 脚本已接入调度器 |
@@ -119,6 +119,8 @@ export PYTHONPATH=$PWD
 # === 回测 ===
 .venv/bin/python scripts/run_backtest_b1.py                                 # B1 策略批量回测
 .venv/bin/python scripts/run_backtest_b1.py --dry-run                       # 预览
+.venv/bin/python scripts/run_backtest.py --strategy caimadama_jq --start 20260101 --end 20260717  # JQ 引擎回测（聚宽格式策略）
+.venv/bin/python scripts/run_backtest.py --strategy lightgbm_small_cap --start 20260101 --end 20260717  # LightGBM 滚动训练回测
 
 # === 调度器 ===
 .venv/bin/python scripts/run_scheduler.py --list                            # 查看任务
@@ -151,8 +153,10 @@ c.close()
 - 日线/分钟线/财务数据完整到 2026-07-14
 - 7 策略全市场信号扫描可用
 - signal_events 填充脚本可用
+- `lightgbm_small_cap.py` LightGBM 滚动训练多因子策略（双平台：xy_quant 本地 + 聚宽原版）
+- caimadama_jq JQ 引擎回测平价验证通过（持仓 0 差异、期末权益 0.000% 偏差）
 - B1 策略回测已验证（7 只股票, backtest_run/performance 有数据）
-- 策略注册表 7 策略已入库
+- 策略注册表 8 策略已入库
 - APScheduler 本地调度器已启动, 6 个 cron job
 - cc-connect 3 条定时任务
 - P0 阻塞修复完成（strategy base 类、registry DB 依赖、visualization 路径、baostock）
