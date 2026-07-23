@@ -64,19 +64,28 @@ def _normalize_index(df):
         df = df.reset_index()
     return df
 
-def _sort_by_date(df, cols=None):
-    """按日期列排序，兼容双平台。自动展开 index 中的日期。"""
+def _get_price_df(security, **kwargs):
+    """统一的 get_price 包装：强制 panel=False，reset_index 统一列格式。
+
+    聚宽 get_price 默认 panel=True 返回 Panel/DataFrame 多级结构，
+    panel=False 返回 MultiIndex (time, code)。这里统一展开为标准 DataFrame
+    (time, code 均为 columns)，上层代码直接 .code / .groupby('code')。
+    """
+    df = get_price(security, panel=False, **kwargs)
+    if df is None or df.empty:
+        return df
     df = _normalize_index(df)
+    return df
+
+def _sort_by_date(df, cols=None):
+    """按日期列排序。已 normalize，直接找日期列。"""
     dc = _date_col(df)
     sort_cols = list(cols or []) + [dc]
     return df.sort_values(sort_cols)
 
 def _drop_date_dup(df, cols=None):
-    """groupby 后取每组最新一条，兼容双平台。"""
-    df = _normalize_index(df)
-    dc = _date_col(df)
-    sort_cols = list(cols or []) + [dc]
-    return df.sort_values(sort_cols).groupby(cols or 'code').tail(1)
+    """groupby 后取每组最新一条。已 normalize，直接操作。"""
+    return _sort_by_date(df, cols).groupby(cols or 'code').tail(1)
 
 # ====================================================================
 # 本地数据辅助函数（xy_quant 引擎：DuckDB / PostgreSQL）
@@ -341,13 +350,12 @@ def get_all_factor_data(securities_list, date):
 
     # ========== 4. 自定义计算：动量 + VOL20 + RSI12 ==========
     try:
-        price_df = get_price(
+        price_df = _get_price_df(
             securities_list,
             end_date=date,
             count=140,
             frequency='daily',
             fields=['close'],
-            panel=False,
             fill_paused=False)
         if price_df is not None and not price_df.empty:
             price_df = _sort_by_date(price_df, ['code'])
@@ -420,9 +428,9 @@ def get_stock_pool2(stock_list, raw_date, min_amount=Config.MIN_DAILY_AMOUNT):
 
     # 过滤涨跌停(±9.5%) + 停牌(vol==0)
     # daily_bar 没有 high_limit/low_limit/paused, 使用 pre_close 近似
-    df_price = get_price(
+    df_price = _get_price_df(
         security=stock_list, frequency='daily', end_date=date, count=2,
-        fields=['close', 'open', 'vol', 'pre_close'], panel=False)
+        fields=['close', 'open', 'vol', 'pre_close'])
     if df_price.empty:
         return []
     # 每只股票取最新的那行
@@ -452,9 +460,9 @@ def get_stock_pool2(stock_list, raw_date, min_amount=Config.MIN_DAILY_AMOUNT):
     # 流动性过滤（近5日日均成交额）
     if stock_list and min_amount > 0:
         try:
-            df_amount = get_price(
-                stock_list, end_date=date, count=5,
-                frequency='daily', fields=['money'], panel=False)
+            df_amount = _get_price_df(
+            stock_list, end_date=date, count=5,
+            frequency='daily', fields=['money'])
             if not df_amount.empty:
                 avg_amount = df_amount.groupby('code')['money'].mean()
                 liquid = avg_amount[avg_amount >= min_amount].index.tolist()
@@ -617,17 +625,15 @@ def build_train_dates(context):
         if hasattr(prev, 'date'):
             prev = prev.date()
         # 往前取足够多的 bar，从中提取交易日
-        idx_df = get_price(
+        idx_df = _get_price_df(
             '000001.XSHG',
             end_date=prev,
-            count=int(total_days * 1.3),  # 多取 30% 含周末节假日
+            count=int(total_days * 1.3),
             frequency='daily',
             fields=['close'],
-            panel=False,
         )
         if idx_df.empty:
             return []
-        idx_df = _normalize_index(idx_df)
         dt_col = _date_col(idx_df)
         all_dates_arr = sorted(idx_df[dt_col].unique().tolist())
         all_dates = all_dates_arr[-total_days:]
@@ -643,7 +649,7 @@ def build_label(stock_list, current_date, horizon_date):
     if not stock_list:
         return None
     try:
-        data_close = get_price(
+        data_close = _get_price_df(
             stock_list, current_date, horizon_date,
             '1d', ['close'])
         if data_close.empty:
@@ -798,13 +804,13 @@ def check_market_regime(context):
     """判断市场状态：MA20 < MA60 → 偏熊"""
     cfg = Config()
     try:
-        df = get_price(
+        df = _get_price_df(
             cfg.MARKET_INDEX,
             end_date=context.previous_date,
             count=cfg.MA_LONG + 10,
             frequency='daily',
             fields=['close'],
-            panel=False)
+        )
         if df is None or df.empty:
             g.market_bearish = False
             return
@@ -950,10 +956,10 @@ def prepare_stock_list(context):
         stock = position.security
         g.hold_list.append(stock)
     if g.hold_list:
-        df = get_price(
+        df = _get_price_df(
             g.hold_list, end_date=context.previous_date,
             frequency='daily', fields=['close', 'pre_close'],
-            count=1, panel=False, fill_paused=False)
+            count=1, fill_paused=False)
         if 'pre_close' in df.columns:
             df['high_limit_est'] = df['pre_close'] * 1.10
             df = df[df['close'] >= df['high_limit_est'] * 0.995]  # ≥9.9%涨停
@@ -1034,10 +1040,10 @@ def check_limit_up(context):
     # 批量拉取一次 DB，不再逐只股票 get_price
     price_map = {}
     try:
-        prices_df = get_price(
+        prices_df = _get_price_df(
             hl_list, end_date=context.current_dt, frequency='daily',
             fields=['close', 'pre_close'],
-            count=1, panel=False, fill_paused=True)
+            count=1, fill_paused=True)
         if prices_df is not None and not prices_df.empty:
             for _, row in prices_df.iterrows():
                 code = row.get('code', '')
@@ -1072,13 +1078,12 @@ def check_stop_loss(context):
     # 批量获取所有持仓股的当天 close（一次 DB 查询）
     price_map = {}
     try:
-        prices_df = get_price(
+        prices_df = _get_price_df(
             active,
             end_date=context.current_dt,
             frequency='daily',
             fields=['close'],
             count=1,
-            panel=False,
             fill_paused=True)
         if prices_df is not None and not prices_df.empty:
             for _, row in prices_df.iterrows():
