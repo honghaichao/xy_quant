@@ -41,9 +41,15 @@ try:
 except ImportError:
     pass
 
-# 列名兼容：xy_quant 引擎返回 "trade_date"，聚宽返回 "date"
+# 列名兼容：
+#   xy_quant 引擎 → "trade_date"
+#   聚宽 get_price(panel=False) → "time"
+#   聚宽 get_all_securities 等 → "date"
 def _date_col(df):
-    return 'trade_date' if 'trade_date' in df.columns else 'date'
+    for col in ('trade_date', 'time', 'date'):
+        if col in df.columns:
+            return col
+    raise KeyError(f"找不到日期列, columns={list(df.columns)[:10]}")
 
 def _sort_by_date(df, cols=None):
     """按日期列排序，兼容双平台列名差异。"""
