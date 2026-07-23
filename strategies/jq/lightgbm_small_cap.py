@@ -566,11 +566,30 @@ def preprocess_factors(df, stocks, date, scaler=None, fit_scaler=False):
 # ====================================================================
 
 def build_train_dates(context):
-    """构建训练采样日期列表"""
+    """构建训练采样日期列表（双平台自适应）"""
     cfg = Config()
-    total_days = cfg.TRAIN_YEARS * 250
-    all_dates = get_trade_days(
-        end_date=context.previous_date, count=total_days)
+    total_days = int(cfg.TRAIN_YEARS * 250)
+
+    if _IS_LOCAL:
+        # xy_quant 引擎注入
+        all_dates = get_trade_days(
+            end_date=context.previous_date, count=total_days)
+    else:
+        # 聚宽平台：get_all_trade_days() 返回全部交易日，手动截取
+        from datetime import datetime as _dt
+        all_dates_pd = get_all_trade_days()
+        # all_dates_pd 是 pandas DatetimeIndex 或 numpy array
+        if hasattr(all_dates_pd, 'tolist'):
+            all_dates_arr = all_dates_pd.tolist()
+        else:
+            all_dates_arr = list(all_dates_pd)
+        prev = context.previous_date
+        if hasattr(prev, 'date'):
+            prev = prev.date()
+        prev_pd = pd.Timestamp(prev)
+        all_dates_arr = [d for d in all_dates_arr if pd.Timestamp(d) <= prev_pd]
+        all_dates = all_dates_arr[-total_days:]
+
     all_dates = list(reversed(all_dates))
     date_list = all_dates[::cfg.SAMPLE_INTERVAL]
     date_list = list(reversed(date_list))  # 从早到晚
@@ -610,7 +629,7 @@ def create_training_samples(context):
 
     for i, date in enumerate(date_list[:-1]):
         if i % 3 == 0:
-            log.info(f"  采样: {i+1}/{len(date_list)-1}"); import sys; sys.stdout.flush()
+            log.info(f"  采样: {i+1}/{len(date_list)-1}")
         next_date = date_list[i + 1]
 
         S_all = get_all_securities(types=['stock'], date=date)
@@ -799,7 +818,7 @@ def get_stock_list(context):
         return []
 
     # ---------- 3. 预处理预测 ----------
-    log.info(f"获取因子数据: {len(small_cap_list)} 只股票"); import sys; sys.stdout.flush()
+    log.info(f"获取因子数据: {len(small_cap_list)} 只股票")
     df = get_all_factor_data(small_cap_list, yesterday)
     log.info(f"因子数据获取完成: {len(df)} 行")
     if df.empty:
