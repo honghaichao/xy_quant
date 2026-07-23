@@ -37,7 +37,7 @@
 | `strategy_registry` | 8 | — | ✅ 8 策略已注册 |
 | `positions` | 10 | 2026-07-14 | ✅ 信号→建仓自动 |
 | `portfolio_daily` | 0 | — | 🔴 待填充 |
-| `agent_analysis_results` | 0 | — | 🔴 从未跑过 |
+| `agent_analysis_results` | 16 | 2026-07-20 | 🟡 AI 分析结果已接入建仓和飞书通知 |
 
 ### PostgreSQL 元数据库（Docker 容器）
 
