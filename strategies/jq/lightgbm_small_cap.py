@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-LightGBM 滚动训练多因子小市值策略 — 本地适配版
+LightGBM 滚动训练多因子小市值策略
 原策略：https://www.joinquant.com/post/75981
 作者：夹头宝典（原版）
-适配：xy_quant JQ 引擎（jq_adapter + DuckDB + PostgreSQL）
 
-聚宽 API 由 engine/api.py 注入，本文件仅 import 科学计算库。
+双平台兼容：
+  - xy_quant 本地引擎（JQ adapter + DuckDB + PostgreSQL）
+  - 聚宽平台（原版 get_fundamentals / get_factor_values）
+
+聚宽 API 由引擎或平台注入，本文件零自定义模块 import。
 策略核心逻辑与原版完全一致。
 """
 
@@ -29,82 +32,135 @@ except ImportError:
     from sklearn.ensemble import GradientBoostingClassifier
 
 # ====================================================================
-# 本地数据辅助函数（直接查询 DuckDB / PostgreSQL）
+# 平台检测：是否有本地 DuckDB → xy_quant / 无 → 聚宽
+# ====================================================================
+_IS_LOCAL = False
+try:
+    import duckdb
+    _IS_LOCAL = True
+except ImportError:
+    pass
+
+# ====================================================================
+# 本地数据辅助函数（xy_quant 引擎：DuckDB / PostgreSQL）
 # ====================================================================
 
 def _query_daily_basic(codes, date):
-    """从 DuckDB daily_basic 获取估值数据（PE/PB/PS/市值/换手率）。
-    返回 DataFrame(index=code, columns=[market_cap, pe_ratio, pb_ratio, ps_ratio, turnover_ratio])
-    """
-    import duckdb
-    from pathlib import Path
-    import sys
+    """获取估值数据（PE/PB/PS/市值/换手率）。
 
+    双平台自适应：
+      - xy_quant 本地 → DuckDB daily_basic
+      - 聚宽 → get_fundamentals(valuation)
+    返回 DataFrame(index=code)
+    """
     if not codes:
         return pd.DataFrame()
-    db_path = Path('/Volumes/quant-ssd/projects/xy_quant') / "data_store" / "market.duckdb"
-    conn = duckdb.connect(str(db_path), read_only=True)
-    try:
-        code_list = ", ".join(f"'{c}'" for c in codes)
-        df = conn.execute(f"""
-            SELECT ts_code, pe_ttm, pb, ps_ttm, total_mv, circ_mv, turnover_rate
-            FROM daily_basic
-            WHERE ts_code IN ({code_list})
-              AND trade_date = ?
-        """, [pd.Timestamp(date).date()]).fetchdf()
+
+    if _IS_LOCAL:
+        import duckdb
+        from pathlib import Path
+
+        db_path = Path('/Volumes/quant-ssd/projects/xy_quant') / "data_store" / "market.duckdb"
+        conn = duckdb.connect(str(db_path), read_only=True)
+        try:
+            code_list = ", ".join(f"'{c}'" for c in codes)
+            df = conn.execute(f"""
+                SELECT ts_code, pe_ttm, pb, ps_ttm, total_mv, circ_mv, turnover_rate
+                FROM daily_basic
+                WHERE ts_code IN ({code_list})
+                  AND trade_date = ?
+            """, [pd.Timestamp(date).date()]).fetchdf()
+            if df.empty:
+                return pd.DataFrame(index=codes)
+            df = df.set_index("ts_code")
+            df.rename(columns={
+                "pe_ttm": "pe_ratio",
+                "pb": "pb_ratio",
+                "ps_ttm": "ps_ratio",
+                "total_mv": "market_cap",
+                "turnover_rate": "turnover_ratio",
+            }, inplace=True)
+            return df
+        finally:
+            conn.close()
+    else:
+        # 聚宽平台：get_fundamentals + valuation 表
+        q = query(
+            valuation.code,
+            valuation.pe_ratio,
+            valuation.pb_ratio,
+            valuation.ps_ratio,
+            valuation.market_cap,
+            valuation.turnover_ratio,
+        ).filter(
+            valuation.code.in_(codes)
+        )
+        df = get_fundamentals(q, date=date)
         if df.empty:
             return pd.DataFrame(index=codes)
-        df = df.set_index("ts_code")
-        df.rename(columns={
-            "pe_ttm": "pe_ratio",
-            "pb": "pb_ratio",
-            "ps_ttm": "ps_ratio",
-            "total_mv": "market_cap",
-            "turnover_rate": "turnover_ratio",
-        }, inplace=True)
+        df = df.set_index("code")
         return df
-    finally:
-        conn.close()
 
 
 def _query_fina_indicator(codes, date):
-    """从 PostgreSQL fina_indicator 获取财务指标（ROE/ROA/毛利/利润增速/营收增速）。
-    取 end_date <= date 的最新一条记录。
-    返回 DataFrame(index=code, columns=[roe, roa, gross_profit_margin, inc_net_profit_year_on_year, inc_revenue_year_on_year])
+    """获取财务指标（ROE/ROA/毛利/利润增速/营收增速）。
+
+    双平台自适应：
+      - xy_quant 本地 → PostgreSQL fina_indicator（取 end_date <= date 最新一条）
+      - 聚宽 → get_fundamentals(indicator)
+    返回 DataFrame(index=code)
     """
     if not codes:
         return pd.DataFrame()
-    from data.storage.factory import get_meta_store
 
-    store = get_meta_store("postgres")
-    try:
-        code_list = ", ".join(f"'{c}'" for c in codes)
-        df = store.query(f"""
-            SELECT DISTINCT ON (ts_code)
-                ts_code, end_date, roe, roa, gross_margin,
-                raw->>'netprofit_yoy' AS netprofit_yoy,
-                raw->>'or_yoy' AS or_yoy
-            FROM fina_indicator
-            WHERE ts_code IN ({code_list})
-              AND end_date <= '{pd.Timestamp(date).date()}'
-            ORDER BY ts_code, end_date DESC
-        """)
+    if _IS_LOCAL:
+        from data.storage.factory import get_meta_store
+
+        store = get_meta_store("postgres")
+        try:
+            code_list = ", ".join(f"'{c}'" for c in codes)
+            df = store.query(f"""
+                SELECT DISTINCT ON (ts_code)
+                    ts_code, end_date, roe, roa, gross_margin,
+                    raw->>'netprofit_yoy' AS netprofit_yoy,
+                    raw->>'or_yoy' AS or_yoy
+                FROM fina_indicator
+                WHERE ts_code IN ({code_list})
+                  AND end_date <= '{pd.Timestamp(date).date()}'
+                ORDER BY ts_code, end_date DESC
+            """)
+            if df.empty:
+                return pd.DataFrame(index=codes)
+            df = df.set_index("ts_code")
+            df.rename(columns={
+                "gross_margin": "gross_profit_margin",
+                "netprofit_yoy": "inc_net_profit_year_on_year",
+                "or_yoy": "inc_revenue_year_on_year",
+            }, inplace=True)
+            for col in ["roe", "roa", "gross_profit_margin",
+                         "inc_net_profit_year_on_year", "inc_revenue_year_on_year"]:
+                if col in df.columns:
+                    df[col] = pd.to_numeric(df[col], errors="coerce")
+            return df
+        finally:
+            store.close()
+    else:
+        # 聚宽平台：get_fundamentals + indicator 表（自动取最新财报）
+        q = query(
+            indicator.code,
+            indicator.roe,
+            indicator.roa,
+            indicator.gross_profit_margin,
+            indicator.inc_net_profit_year_on_year,
+            indicator.inc_revenue_year_on_year,
+        ).filter(
+            indicator.code.in_(codes)
+        )
+        df = get_fundamentals(q, date=date)
         if df.empty:
             return pd.DataFrame(index=codes)
-        df = df.set_index("ts_code")
-        df.rename(columns={
-            "gross_margin": "gross_profit_margin",
-            "netprofit_yoy": "inc_net_profit_year_on_year",
-            "or_yoy": "inc_revenue_year_on_year",
-        }, inplace=True)
-        # 转换为 float
-        for col in ["roe", "roa", "gross_profit_margin",
-                     "inc_net_profit_year_on_year", "inc_revenue_year_on_year"]:
-            if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors="coerce")
+        df = df.set_index("code")
         return df
-    finally:
-        store.close()
 
 
 # ====================================================================
@@ -405,8 +461,6 @@ def neutralize_factors(df, stocks, date):
 
         # 获取行业
         try:
-            from jq_adapter.utils import normalize_code
-            codes_normalized = [normalize_code(c) if '.' not in c else c for c in df.index]
             ind_dict = get_industry(list(df.index), date=date)
             if ind_dict:
                 # 提取 sw_l1 行业名；若无则用 sw_l2
