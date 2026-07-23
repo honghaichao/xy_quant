@@ -41,6 +41,22 @@ try:
 except ImportError:
     pass
 
+# 列名兼容：xy_quant 引擎返回 "trade_date"，聚宽返回 "date"
+def _date_col(df):
+    return 'trade_date' if 'trade_date' in df.columns else 'date'
+
+def _sort_by_date(df, cols=None):
+    """按日期列排序，兼容双平台列名差异。"""
+    dc = _date_col(df)
+    sort_cols = cols + [dc] if cols else [dc]
+    return df.sort_values(sort_cols)
+
+def _drop_date_dup(df, cols=None):
+    """groupby 后取每组最新一条，兼容双平台列名差异。"""
+    dc = _date_col(df)
+    sort_cols = cols + [dc] if cols else [dc]
+    return df.sort_values(sort_cols).groupby(cols or 'code').tail(1)
+
 # ====================================================================
 # 本地数据辅助函数（xy_quant 引擎：DuckDB / PostgreSQL）
 # ====================================================================
@@ -313,8 +329,7 @@ def get_all_factor_data(securities_list, date):
             panel=False,
             fill_paused=False)
         if price_df is not None and not price_df.empty:
-            date_col = 'trade_date' if 'trade_date' in price_df.columns else 'date'
-            price_df = price_df.sort_values(['code', date_col])
+            price_df = _sort_by_date(price_df, ['code'])
 
             # ---- vectorized metrics per stock (no loop-body .loc) ----
             metrics_rows = []
@@ -390,8 +405,7 @@ def get_stock_pool2(stock_list, raw_date, min_amount=Config.MIN_DAILY_AMOUNT):
     if df_price.empty:
         return []
     # 每只股票取最新的那行
-    date_col = 'trade_date' if 'trade_date' in df_price.columns else 'date'
-    latest = df_price.sort_values(date_col).groupby('code').tail(1)
+    latest = _drop_date_dup(df_price)
     latest['high_limit_est'] = latest['pre_close'] * 1.10
     latest['low_limit_est'] = latest['pre_close'] * 0.90
     stock_list = latest.query(
@@ -593,7 +607,7 @@ def build_train_dates(context):
         if idx_df.empty:
             return []
         # 聚宽 get_price(panel=False) 日期列叫 date，xy_quant 叫 trade_date
-        dt_col = 'trade_date' if 'trade_date' in idx_df.columns else 'date'
+        dt_col = _date_col(idx_df)
         all_dates_arr = sorted(idx_df[dt_col].unique().tolist())
         all_dates = all_dates_arr[-total_days:]
 
@@ -613,11 +627,9 @@ def build_label(stock_list, current_date, horizon_date):
             '1d', ['close'])
         if data_close.empty:
             return None
-        # 兼容 xy_quant (trade_date) 和聚宽 (date) 的列名差异
-        date_col = 'trade_date' if 'trade_date' in data_close.columns else 'date'
         pchg = pd.Series(index=stock_list, dtype=float)
         for code in data_close['code'].unique():
-            cdata = data_close[data_close['code'] == code].sort_values(date_col)
+            cdata = _sort_by_date(data_close[data_close['code'] == code])
             if len(cdata) >= 2:
                 pchg.loc[code] = cdata['close'].iloc[-1] / cdata['close'].iloc[0] - 1
         return pchg.dropna()
