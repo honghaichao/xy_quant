@@ -1,14 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-LightGBM 滚动训练多因子小市值策略
+LightGBM 滚动训练多因子小市值策略 — 本地适配版
 原策略：https://www.joinquant.com/post/75981
 作者：夹头宝典（原版）
+适配：xy_quant JQ 引擎（jq_adapter + DuckDB + PostgreSQL）
 
-双平台兼容：
-  - xy_quant 本地引擎（JQ adapter + DuckDB + PostgreSQL）
-  - 聚宽平台（原版 get_fundamentals / get_factor_values）
-
-聚宽 API 由引擎或平台注入，本文件零自定义模块 import。
+聚宽 API 由 engine/api.py 注入，本文件仅 import 科学计算库。
 策略核心逻辑与原版完全一致。
 """
 
@@ -32,204 +29,82 @@ except ImportError:
     from sklearn.ensemble import GradientBoostingClassifier
 
 # ====================================================================
-# 平台检测：是否有本地 DuckDB → xy_quant / 无 → 聚宽
-# ====================================================================
-_IS_LOCAL = False
-try:
-    import duckdb
-    _IS_LOCAL = True
-except ImportError:
-    pass
-
-# ====================================================================
-# 适配层：聚宽 get_price 输出格式高度依赖参数：
-#   - panel=True (默认)  → Panel 对象，我们的代码不用这个
-#   - panel=False, 多股票 → MultiIndex(time, code)，reset_index 展开
-#   - panel=False, 单股票 → DatetimeIndex(name=None)，reset_index → 'index' 列
-#   - panel=False, 单股票(count=1) → DatetimeIndex(name=None, len=1)
-#
-# xy_quant 引擎：columns 中有 trade_date, code/ts_code
-#
-# 下面统一用 panel=False + reset_index → 策略代码无感知。
-# ====================================================================
-
-def _normalize_price_df(df):
-    """reset_index 展开 index 到 columns。"""
-    if df is None or df.empty:
-        return df
-    return df.reset_index()
-
-def _date_col(df):
-    """查找日期所在列。已 normalize 后探测。"""
-    for col in ('trade_date', 'time', 'date', 'level_0'):
-        if col in df.columns:
-            return col
-    from pandas.api.types import is_datetime64_any_dtype
-    for col in df.columns:
-        if is_datetime64_any_dtype(df[col]):
-            return col
-    if 'index' in df.columns:
-        return 'index'
-    raise KeyError(f"找不到日期列: {list(df.columns)[:10]}")
-
-def _code_col(df):
-    """查找代码所在列。已 normalize 后探测。"""
-    for col in ('code', 'ts_code', 'level_1'):
-        if col in df.columns:
-            return col
-    return 'code'
-
-def _get_price_df(security, **kwargs):
-    """统一 get_price 入口：强制 panel=False，reset_index 展开为列。
-
-    无论输入格式是 MultiIndex / unnamed DatetimeIndex / columns 中的 trade_date，
-    统一输出为有 code 列和日期列的标准 DataFrame。
-    """
-    df = get_price(security, panel=False, **kwargs)
-    if df is None or df.empty:
-        return df
-    df = _normalize_price_df(df)
-    # 统一代码列名：ts_code → code
-    if 'ts_code' in df.columns and 'code' not in df.columns:
-        df = df.rename(columns={'ts_code': 'code'})
-    # 如果列名中有 'index' 且是 datetime 类型，重命名为 'date'
-    # （聚宽单股票 get_price(panel=False) reset_index 后产生 'index' 列）
-    if 'index' in df.columns:
-        from pandas.api.types import is_datetime64_any_dtype
-        if is_datetime64_any_dtype(df['index']):
-            df = df.rename(columns={'index': 'date'})
-    return df
-
-def _sort_by_date(df, cols=None):
-    """按日期列排序。"""
-    dc = _date_col(df)
-    sort_cols = list(cols or []) + [dc]
-    return df.sort_values(sort_cols)
-
-def _drop_date_dup(df, cols=None):
-    """groupby 后取每组最新一条。"""
-    return _sort_by_date(df, cols).groupby(cols or 'code').tail(1)
-
-# ====================================================================
-# 本地数据辅助函数（xy_quant 引擎：DuckDB / PostgreSQL）
+# 本地数据辅助函数（直接查询 DuckDB / PostgreSQL）
 # ====================================================================
 
 def _query_daily_basic(codes, date):
-    """获取估值数据（PE/PB/PS/市值/换手率）。
-
-    双平台自适应：
-      - xy_quant 本地 → DuckDB daily_basic
-      - 聚宽 → get_fundamentals(valuation)
-    返回 DataFrame(index=code)
+    """从 DuckDB daily_basic 获取估值数据（PE/PB/PS/市值/换手率）。
+    返回 DataFrame(index=code, columns=[market_cap, pe_ratio, pb_ratio, ps_ratio, turnover_ratio])
     """
+    import duckdb
+    from pathlib import Path
+    import sys
+
     if not codes:
         return pd.DataFrame()
-
-    if _IS_LOCAL:
-        import duckdb
-        from pathlib import Path
-
-        db_path = Path('/Volumes/quant-ssd/projects/xy_quant') / "data_store" / "market.duckdb"
-        conn = duckdb.connect(str(db_path), read_only=True)
-        try:
-            code_list = ", ".join(f"'{c}'" for c in codes)
-            df = conn.execute(f"""
-                SELECT ts_code, pe_ttm, pb, ps_ttm, total_mv, circ_mv, turnover_rate
-                FROM daily_basic
-                WHERE ts_code IN ({code_list})
-                  AND trade_date = ?
-            """, [pd.Timestamp(date).date()]).fetchdf()
-            if df.empty:
-                return pd.DataFrame(index=codes)
-            df = df.set_index("ts_code")
-            df.rename(columns={
-                "pe_ttm": "pe_ratio",
-                "pb": "pb_ratio",
-                "ps_ttm": "ps_ratio",
-                "total_mv": "market_cap",
-                "turnover_rate": "turnover_ratio",
-            }, inplace=True)
-            return df
-        finally:
-            conn.close()
-    else:
-        # 聚宽平台：get_fundamentals + valuation 表
-        q = query(
-            valuation.code,
-            valuation.pe_ratio,
-            valuation.pb_ratio,
-            valuation.ps_ratio,
-            valuation.market_cap,
-            valuation.turnover_ratio,
-        ).filter(
-            valuation.code.in_(codes)
-        )
-        df = get_fundamentals(q, date=date)
+    db_path = Path('/Volumes/quant-ssd/projects/xy_quant') / "data_store" / "market.duckdb"
+    conn = duckdb.connect(str(db_path), read_only=True)
+    try:
+        code_list = ", ".join(f"'{c}'" for c in codes)
+        df = conn.execute(f"""
+            SELECT ts_code, pe_ttm, pb, ps_ttm, total_mv, circ_mv, turnover_rate
+            FROM daily_basic
+            WHERE ts_code IN ({code_list})
+              AND trade_date = ?
+        """, [pd.Timestamp(date).date()]).fetchdf()
         if df.empty:
             return pd.DataFrame(index=codes)
-        df = df.set_index("code")
+        df = df.set_index("ts_code")
+        df.rename(columns={
+            "pe_ttm": "pe_ratio",
+            "pb": "pb_ratio",
+            "ps_ttm": "ps_ratio",
+            "total_mv": "market_cap",
+            "turnover_rate": "turnover_ratio",
+        }, inplace=True)
         return df
+    finally:
+        conn.close()
 
 
 def _query_fina_indicator(codes, date):
-    """获取财务指标（ROE/ROA/毛利/利润增速/营收增速）。
-
-    双平台自适应：
-      - xy_quant 本地 → PostgreSQL fina_indicator（取 end_date <= date 最新一条）
-      - 聚宽 → get_fundamentals(indicator)
-    返回 DataFrame(index=code)
+    """从 PostgreSQL fina_indicator 获取财务指标（ROE/ROA/毛利/利润增速/营收增速）。
+    取 end_date <= date 的最新一条记录。
+    返回 DataFrame(index=code, columns=[roe, roa, gross_profit_margin, inc_net_profit_year_on_year, inc_revenue_year_on_year])
     """
     if not codes:
         return pd.DataFrame()
+    from data.storage.factory import get_meta_store
 
-    if _IS_LOCAL:
-        from data.storage.factory import get_meta_store
-
-        store = get_meta_store("postgres")
-        try:
-            code_list = ", ".join(f"'{c}'" for c in codes)
-            df = store.query(f"""
-                SELECT DISTINCT ON (ts_code)
-                    ts_code, end_date, roe, roa, gross_margin,
-                    raw->>'netprofit_yoy' AS netprofit_yoy,
-                    raw->>'or_yoy' AS or_yoy
-                FROM fina_indicator
-                WHERE ts_code IN ({code_list})
-                  AND end_date <= '{pd.Timestamp(date).date()}'
-                ORDER BY ts_code, end_date DESC
-            """)
-            if df.empty:
-                return pd.DataFrame(index=codes)
-            df = df.set_index("ts_code")
-            df.rename(columns={
-                "gross_margin": "gross_profit_margin",
-                "netprofit_yoy": "inc_net_profit_year_on_year",
-                "or_yoy": "inc_revenue_year_on_year",
-            }, inplace=True)
-            for col in ["roe", "roa", "gross_profit_margin",
-                         "inc_net_profit_year_on_year", "inc_revenue_year_on_year"]:
-                if col in df.columns:
-                    df[col] = pd.to_numeric(df[col], errors="coerce")
-            return df
-        finally:
-            store.close()
-    else:
-        # 聚宽平台：get_fundamentals + indicator 表（自动取最新财报）
-        q = query(
-            indicator.code,
-            indicator.roe,
-            indicator.roa,
-            indicator.gross_profit_margin,
-            indicator.inc_net_profit_year_on_year,
-            indicator.inc_revenue_year_on_year,
-        ).filter(
-            indicator.code.in_(codes)
-        )
-        df = get_fundamentals(q, date=date)
+    store = get_meta_store("postgres")
+    try:
+        code_list = ", ".join(f"'{c}'" for c in codes)
+        df = store.query(f"""
+            SELECT DISTINCT ON (ts_code)
+                ts_code, end_date, roe, roa, gross_margin,
+                raw->>'netprofit_yoy' AS netprofit_yoy,
+                raw->>'or_yoy' AS or_yoy
+            FROM fina_indicator
+            WHERE ts_code IN ({code_list})
+              AND end_date <= '{pd.Timestamp(date).date()}'
+            ORDER BY ts_code, end_date DESC
+        """)
         if df.empty:
             return pd.DataFrame(index=codes)
-        df = df.set_index("code")
+        df = df.set_index("ts_code")
+        df.rename(columns={
+            "gross_margin": "gross_profit_margin",
+            "netprofit_yoy": "inc_net_profit_year_on_year",
+            "or_yoy": "inc_revenue_year_on_year",
+        }, inplace=True)
+        # 转换为 float
+        for col in ["roe", "roa", "gross_profit_margin",
+                     "inc_net_profit_year_on_year", "inc_revenue_year_on_year"]:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors="coerce")
         return df
+    finally:
+        store.close()
 
 
 # ====================================================================
@@ -373,15 +248,17 @@ def get_all_factor_data(securities_list, date):
 
     # ========== 4. 自定义计算：动量 + VOL20 + RSI12 ==========
     try:
-        price_df = _get_price_df(
+        price_df = get_price(
             securities_list,
             end_date=date,
             count=140,
             frequency='daily',
             fields=['close'],
+            panel=False,
             fill_paused=False)
         if price_df is not None and not price_df.empty:
-            price_df = _sort_by_date(price_df, ['code'])
+            if 'trade_date' in price_df.columns:
+                price_df = price_df.sort_values(['code', 'trade_date'])
 
             # ---- vectorized metrics per stock (no loop-body .loc) ----
             metrics_rows = []
@@ -451,13 +328,13 @@ def get_stock_pool2(stock_list, raw_date, min_amount=Config.MIN_DAILY_AMOUNT):
 
     # 过滤涨跌停(±9.5%) + 停牌(vol==0)
     # daily_bar 没有 high_limit/low_limit/paused, 使用 pre_close 近似
-    df_price = _get_price_df(
+    df_price = get_price(
         security=stock_list, frequency='daily', end_date=date, count=2,
-        fields=['close', 'open', 'vol', 'pre_close'])
+        fields=['close', 'open', 'vol', 'pre_close'], panel=False)
     if df_price.empty:
         return []
     # 每只股票取最新的那行
-    latest = _drop_date_dup(df_price)
+    latest = df_price.sort_values('trade_date').groupby('code').tail(1)
     latest['high_limit_est'] = latest['pre_close'] * 1.10
     latest['low_limit_est'] = latest['pre_close'] * 0.90
     stock_list = latest.query(
@@ -483,9 +360,9 @@ def get_stock_pool2(stock_list, raw_date, min_amount=Config.MIN_DAILY_AMOUNT):
     # 流动性过滤（近5日日均成交额）
     if stock_list and min_amount > 0:
         try:
-            df_amount = _get_price_df(
-            stock_list, end_date=date, count=5,
-            frequency='daily', fields=['money'])
+            df_amount = get_price(
+                stock_list, end_date=date, count=5,
+                frequency='daily', fields=['money'], panel=False)
             if not df_amount.empty:
                 avg_amount = df_amount.groupby('code')['money'].mean()
                 liquid = avg_amount[avg_amount >= min_amount].index.tolist()
@@ -528,6 +405,8 @@ def neutralize_factors(df, stocks, date):
 
         # 获取行业
         try:
+            from jq_adapter.utils import normalize_code
+            codes_normalized = [normalize_code(c) if '.' not in c else c for c in df.index]
             ind_dict = get_industry(list(df.index), date=date)
             if ind_dict:
                 # 提取 sw_l1 行业名；若无则用 sw_l2
@@ -633,34 +512,14 @@ def preprocess_factors(df, stocks, date, scaler=None, fit_scaler=False):
 # ====================================================================
 
 def build_train_dates(context):
-    """构建训练采样日期列表（双平台自适应）"""
+    """构建训练采样日期列表"""
     cfg = Config()
-    total_days = int(cfg.TRAIN_YEARS * 250)
-
-    if _IS_LOCAL:
-        # xy_quant 引擎注入
-        all_dates = get_trade_days(
-            end_date=context.previous_date, count=total_days)
-    else:
-        # 聚宽平台：get_all_trade_days() 返回 numpy datetime64 数组
-        all_dates_arr = list(get_all_trade_days())
-        prev = context.previous_date
-        if hasattr(prev, 'date'):
-            prev = prev.date()
-        prev_ts = pd.Timestamp(prev)
-        # filter dates <= previous_date
-        all_dates_arr = [
-            d for d in all_dates_arr
-            if pd.Timestamp(d).date() <= (prev if hasattr(prev, 'date') else prev.date())
-        ]
-        all_dates = all_dates_arr[-total_days:]
-
+    total_days = cfg.TRAIN_YEARS * 250
+    all_dates = get_trade_days(
+        end_date=context.previous_date, count=total_days)
     all_dates = list(reversed(all_dates))
     date_list = all_dates[::cfg.SAMPLE_INTERVAL]
     date_list = list(reversed(date_list))  # 从早到晚
-
-    # 统一转为 datetime.date，聚宽 get_all_securities / get_price 只接受这个类型
-    date_list = [pd.Timestamp(d).date() for d in date_list]
     return date_list
 
 
@@ -669,14 +528,14 @@ def build_label(stock_list, current_date, horizon_date):
     if not stock_list:
         return None
     try:
-        data_close = _get_price_df(
+        data_close = get_price(
             stock_list, current_date, horizon_date,
             '1d', ['close'])
         if data_close.empty:
             return None
         pchg = pd.Series(index=stock_list, dtype=float)
         for code in data_close['code'].unique():
-            cdata = _sort_by_date(data_close[data_close['code'] == code])
+            cdata = data_close[data_close['code'] == code].sort_values('trade_date')
             if len(cdata) >= 2:
                 pchg.loc[code] = cdata['close'].iloc[-1] / cdata['close'].iloc[0] - 1
         return pchg.dropna()
@@ -697,7 +556,7 @@ def create_training_samples(context):
 
     for i, date in enumerate(date_list[:-1]):
         if i % 3 == 0:
-            log.info(f"  采样: {i+1}/{len(date_list)-1}")
+            log.info(f"  采样: {i+1}/{len(date_list)-1}"); import sys; sys.stdout.flush()
         next_date = date_list[i + 1]
 
         S_all = get_all_securities(types=['stock'], date=date)
@@ -824,13 +683,13 @@ def check_market_regime(context):
     """判断市场状态：MA20 < MA60 → 偏熊"""
     cfg = Config()
     try:
-        df = _get_price_df(
+        df = get_price(
             cfg.MARKET_INDEX,
             end_date=context.previous_date,
             count=cfg.MA_LONG + 10,
             frequency='daily',
             fields=['close'],
-        )
+            panel=False)
         if df is None or df.empty:
             g.market_bearish = False
             return
@@ -886,7 +745,7 @@ def get_stock_list(context):
         return []
 
     # ---------- 3. 预处理预测 ----------
-    log.info(f"获取因子数据: {len(small_cap_list)} 只股票")
+    log.info(f"获取因子数据: {len(small_cap_list)} 只股票"); import sys; sys.stdout.flush()
     df = get_all_factor_data(small_cap_list, yesterday)
     log.info(f"因子数据获取完成: {len(df)} 行")
     if df.empty:
@@ -976,10 +835,10 @@ def prepare_stock_list(context):
         stock = position.security
         g.hold_list.append(stock)
     if g.hold_list:
-        df = _get_price_df(
+        df = get_price(
             g.hold_list, end_date=context.previous_date,
             frequency='daily', fields=['close', 'pre_close'],
-            count=1, fill_paused=False)
+            count=1, panel=False, fill_paused=False)
         if 'pre_close' in df.columns:
             df['high_limit_est'] = df['pre_close'] * 1.10
             df = df[df['close'] >= df['high_limit_est'] * 0.995]  # ≥9.9%涨停
@@ -1060,10 +919,10 @@ def check_limit_up(context):
     # 批量拉取一次 DB，不再逐只股票 get_price
     price_map = {}
     try:
-        prices_df = _get_price_df(
+        prices_df = get_price(
             hl_list, end_date=context.current_dt, frequency='daily',
             fields=['close', 'pre_close'],
-            count=1, fill_paused=True)
+            count=1, panel=False, fill_paused=True)
         if prices_df is not None and not prices_df.empty:
             for _, row in prices_df.iterrows():
                 code = row.get('code', '')
@@ -1098,12 +957,13 @@ def check_stop_loss(context):
     # 批量获取所有持仓股的当天 close（一次 DB 查询）
     price_map = {}
     try:
-        prices_df = _get_price_df(
+        prices_df = get_price(
             active,
             end_date=context.current_dt,
             frequency='daily',
             fields=['close'],
             count=1,
+            panel=False,
             fill_paused=True)
         if prices_df is not None and not prices_df.empty:
             for _, row in prices_df.iterrows():
