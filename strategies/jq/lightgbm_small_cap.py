@@ -42,63 +42,62 @@ except ImportError:
     pass
 
 # ====================================================================
-# 适配层：聚宽 get_price(panel=False) 格式因 security 类型不同而变化：
-#   - 多股票 → MultiIndex(time, code)
-#   - 单股票 → Index(datetime, name=None)
-#   - xy_quant 引擎 → columns 中有 trade_date
-# 统一先 reset_index，再按列名探测，上层策略代码无感知。
+# 适配层：聚宽 get_price 输出格式高度依赖参数：
+#   - panel=True (默认)  → Panel 对象，我们的代码不用这个
+#   - panel=False, 多股票 → MultiIndex(time, code)，reset_index 展开
+#   - panel=False, 单股票 → DatetimeIndex(name=None)，reset_index → 'index' 列
+#   - panel=False, 单股票(count=1) → DatetimeIndex(name=None, len=1)
+#
+# xy_quant 引擎：columns 中有 trade_date, code/ts_code
+#
+# 下面统一用 panel=False + reset_index → 策略代码无感知。
 # ====================================================================
 
 def _normalize_price_df(df):
-    """把 get_price(panel=False) 返回的 DataFrame 统一展开为标准列格式。
-
-    无论输入是 MultiIndex 还是无名字的 DatetimeIndex，一律 reset_index，
-    保证 code 和日期都在 columns 中。
-    返回标准化后的 DataFrame（不修改原 df）。
-    """
+    """reset_index 展开 index 到 columns。"""
     if df is None or df.empty:
         return df
-    df = df.reset_index()
-    return df
+    return df.reset_index()
 
 def _date_col(df):
-    """在已 normalize 的 DataFrame 中查找日期列名。"""
+    """查找日期所在列。已 normalize 后探测。"""
     for col in ('trade_date', 'time', 'date', 'level_0'):
         if col in df.columns:
             return col
-    # 回退：找第一个 datetime 类型的列
     from pandas.api.types import is_datetime64_any_dtype
     for col in df.columns:
         if is_datetime64_any_dtype(df[col]):
             return col
-    # 再回退：reset_index 产生的默认名
     if 'index' in df.columns:
         return 'index'
-    raise KeyError(f"找不到日期列, columns={list(df.columns)[:10]}")
+    raise KeyError(f"找不到日期列: {list(df.columns)[:10]}")
 
 def _code_col(df):
-    """在已 normalize 的 DataFrame 中查找代码列名。"""
+    """查找代码所在列。已 normalize 后探测。"""
     for col in ('code', 'ts_code', 'level_1'):
         if col in df.columns:
             return col
-    # 聚宽 multi-index reset → level_0=time, level_1=code
-    # xy_quant 已经 code column
     return 'code'
 
 def _get_price_df(security, **kwargs):
-    """统一的 get_price 包装：强制 panel=False，展开 index 到 columns。
+    """统一 get_price 入口：强制 panel=False，reset_index 展开为列。
 
-    聚宽 get_price 默认 panel=True 返回 Panel/DataFrame 多级结构。
-    这里统一用 panel=False，然后 reset_index 展开为标准 DataFrame。
-    上层代码可直接 .code / .groupby('code')。
+    无论输入格式是 MultiIndex / unnamed DatetimeIndex / columns 中的 trade_date，
+    统一输出为有 code 列和日期列的标准 DataFrame。
     """
     df = get_price(security, panel=False, **kwargs)
     if df is None or df.empty:
         return df
-    df = df.reset_index()
-    # 统一列名：看到 ts_code → code
+    df = _normalize_price_df(df)
+    # 统一代码列名：ts_code → code
     if 'ts_code' in df.columns and 'code' not in df.columns:
         df = df.rename(columns={'ts_code': 'code'})
+    # 如果列名中有 'index' 且是 datetime 类型，重命名为 'date'
+    # （聚宽单股票 get_price(panel=False) reset_index 后产生 'index' 列）
+    if 'index' in df.columns:
+        from pandas.api.types import is_datetime64_any_dtype
+        if is_datetime64_any_dtype(df['index']):
+            df = df.rename(columns={'index': 'date'})
     return df
 
 def _sort_by_date(df, cols=None):
@@ -643,24 +642,38 @@ def build_train_dates(context):
         all_dates = get_trade_days(
             end_date=context.previous_date, count=total_days)
     else:
-        # 聚宽平台：没有独立的 get_all_trade_days()，
-        # 通过 get_price 拉上证指数日线来提取交易日
-        prev = context.previous_date
-        if hasattr(prev, 'date'):
-            prev = prev.date()
-        # 往前取足够多的 bar，从中提取交易日
-        idx_df = _get_price_df(
-            '000001.XSHG',
-            end_date=prev,
-            count=int(total_days * 1.3),
-            frequency='daily',
-            fields=['close'],
-        )
-        if idx_df.empty:
-            return []
-        dt_col = _date_col(idx_df)
-        all_dates_arr = sorted(idx_df[dt_col].unique().tolist())
-        all_dates = all_dates_arr[-total_days:]
+        # 聚宽平台：用 get_all_trade_days() 获取交易日历
+        try:
+            all_dates_pd = get_all_trade_days()
+        except NameError:
+            # 解析失败——用 get_price 拉指数提取
+            prev = context.previous_date
+            if hasattr(prev, 'date'):
+                prev = prev.date()
+            idx_df = _get_price_df(
+                '000001.XSHG',
+                end_date=prev,
+                count=int(total_days * 1.3),
+                frequency='daily',
+                fields=['close'],
+            )
+            if idx_df.empty:
+                return []
+            dt_col = _date_col(idx_df)
+            all_dates_arr = sorted(idx_df[dt_col].unique().tolist())
+            all_dates = all_dates_arr[-total_days:]
+        else:
+            # get_all_trade_days() 返回 datetime 列表或 DatetimeIndex
+            if hasattr(all_dates_pd, 'tolist'):
+                all_dates_arr = all_dates_pd.tolist()
+            else:
+                all_dates_arr = list(all_dates_pd)
+            prev = context.previous_date
+            if hasattr(prev, 'date'):
+                prev = prev.date()
+            prev_ts = pd.Timestamp(prev)
+            all_dates_arr = [d for d in all_dates_arr if pd.Timestamp(d) <= prev_ts]
+            all_dates = all_dates_arr[-total_days:]
 
     all_dates = list(reversed(all_dates))
     date_list = all_dates[::cfg.SAMPLE_INTERVAL]
