@@ -218,11 +218,6 @@ def build_card(data: dict) -> dict:
 
     # ── AI 分析摘要区块 ──
     if agent_decisions:
-        ai_has_buy = any(
-            d.get("action", "") in ("BUY", "买入") or
-            d.get("final_decision", "") in ("买入", "强烈买入")
-            for d in agent_decisions.values()
-        )
         ai_lines = ["", "**🤖 AI Agent 分析摘要**", ""]
         for code, d in agent_decisions.items():
             name = resolve_name(code, load_name_map())
@@ -239,13 +234,16 @@ def build_card(data: dict) -> dict:
             )
         if len(agent_decisions) == 0:
             ai_lines.append("当日无 AI 分析结果")
-        elements.insert(0, {
+
+    elements: list[dict] = []
+
+    # ── AI 分析摘要区块 ──
+    if agent_decisions and ai_lines:
+        elements.append({
             "tag": "div",
             "text": {"tag": "lark_md", "content": "\n".join(ai_lines)},
         })
-        elements.insert(1, {"tag": "hr"})
-
-    elements: list[dict] = []
+        elements.append({"tag": "hr"})
 
     # ── strategy summary (was unused — now rendered) ──
     if summary_items:
