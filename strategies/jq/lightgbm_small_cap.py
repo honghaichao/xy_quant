@@ -642,38 +642,18 @@ def build_train_dates(context):
         all_dates = get_trade_days(
             end_date=context.previous_date, count=total_days)
     else:
-        # 聚宽平台：用 get_all_trade_days() 获取交易日历
-        try:
-            all_dates_pd = get_all_trade_days()
-        except NameError:
-            # 解析失败——用 get_price 拉指数提取
-            prev = context.previous_date
-            if hasattr(prev, 'date'):
-                prev = prev.date()
-            idx_df = _get_price_df(
-                '000001.XSHG',
-                end_date=prev,
-                count=int(total_days * 1.3),
-                frequency='daily',
-                fields=['close'],
-            )
-            if idx_df.empty:
-                return []
-            dt_col = _date_col(idx_df)
-            all_dates_arr = sorted(idx_df[dt_col].unique().tolist())
-            all_dates = all_dates_arr[-total_days:]
-        else:
-            # get_all_trade_days() 返回 datetime 列表或 DatetimeIndex
-            if hasattr(all_dates_pd, 'tolist'):
-                all_dates_arr = all_dates_pd.tolist()
-            else:
-                all_dates_arr = list(all_dates_pd)
-            prev = context.previous_date
-            if hasattr(prev, 'date'):
-                prev = prev.date()
-            prev_ts = pd.Timestamp(prev)
-            all_dates_arr = [d for d in all_dates_arr if pd.Timestamp(d) <= prev_ts]
-            all_dates = all_dates_arr[-total_days:]
+        # 聚宽平台：get_all_trade_days() 返回 numpy datetime64 数组
+        all_dates_arr = list(get_all_trade_days())
+        prev = context.previous_date
+        if hasattr(prev, 'date'):
+            prev = prev.date()
+        prev_ts = pd.Timestamp(prev)
+        # filter dates <= previous_date
+        all_dates_arr = [
+            d for d in all_dates_arr
+            if pd.Timestamp(d).date() <= (prev if hasattr(prev, 'date') else prev.date())
+        ]
+        all_dates = all_dates_arr[-total_days:]
 
     all_dates = list(reversed(all_dates))
     date_list = all_dates[::cfg.SAMPLE_INTERVAL]
