@@ -66,6 +66,28 @@ def main():
             """, [query_date]).fetchdf()
 
         codes = sorted(set(df["code"].tolist())) if len(df) > 0 else []
+
+        # 按信号得分降序排列（取最强信号优先分析），而非字母序
+        if codes:
+            from datetime import date as ddate
+            query_date = ddate(int(trade_date[:4]), int(trade_date[4:6]), int(trade_date[6:]))
+            conn2 = duckdb.connect(str(settings.duckdb_path), read_only=True)
+            try:
+                code_filter = ", ".join(f"'{c}'" for c in codes)
+                scores_df = conn2.execute(f"""
+                    SELECT code, MAX(GREATEST(
+                        COALESCE(score_b1,0), COALESCE(score_b2,0),
+                        COALESCE(score_blk,0), COALESCE(score_blkB2,0),
+                        COALESCE(score_scb,0), COALESCE(score_dz30,0)
+                    )) AS best_score
+                    FROM daily_signals
+                    WHERE date = ? AND code IN ({code_filter})
+                    GROUP BY code
+                    ORDER BY best_score DESC
+                """, [query_date]).fetchdf()
+                codes = scores_df["code"].tolist()
+            finally:
+                conn2.close()
     finally:
         conn.close()
 

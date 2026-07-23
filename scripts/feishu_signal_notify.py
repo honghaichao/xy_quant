@@ -123,6 +123,14 @@ def fetch_signals(target_date: str) -> dict:
         # Sort buy_list by score desc
         buy_list.sort(key=lambda x: x["score"], reverse=True)
 
+        # ── 查询 AI 分析结果 ──
+        agent_decisions: dict[str, dict] = {}
+        try:
+            from agent.adapters.result_adapter import get_daily_agent_decisions
+            agent_decisions = get_daily_agent_decisions(td)
+        except Exception:
+            pass
+
         return {
             "date": td,
             "total": len(rows),
@@ -132,6 +140,7 @@ def fetch_signals(target_date: str) -> dict:
                             for k, v in sorted(by_strategy.items())},
             "buy_list": buy_list,
             "sell_list": sell_list,
+            "agent_decisions": agent_decisions,
         }
     finally:
         db.close()
@@ -175,17 +184,66 @@ def build_card(data: dict) -> dict:
 
     # ── top buy list ──
     buy_list = data["buy_list"][:20]
+    agent_decisions = data.get("agent_decisions", {})
     if buy_list:
         markdown_lines.append("")
         markdown_lines.append("**🏆 Top 买入信号**")
         markdown_lines.append("")
-        markdown_lines.append("|股票|策略|价格|涨跌%|得分|")
-        markdown_lines.append("|---|---|---|---|---|")
-        for s in buy_list:
-            chg = f"{s['change_pct']:+.2f}" if s['change_pct'] is not None else "-"
-            markdown_lines.append(
-                f"|{s['name']}({s['code']})|{s['strategy']}|{s['close']}|{chg}|{s['score']}|"
+        if agent_decisions:
+            markdown_lines.append("|股票|策略|价格|涨跌%|得分|AI 判断|")
+            markdown_lines.append("|---|---|---|---|---|---|")
+            for s in buy_list:
+                chg = f"{s['change_pct']:+.2f}" if s['change_pct'] is not None else "-"
+                ai = agent_decisions.get(s["code"], {})
+                ai_label = ""
+                if ai:
+                    decision = ai.get("final_decision", "")
+                    confidence = ai.get("confidence", 0)
+                    action = ai.get("action", "")
+                    if action or decision:
+                        decision_str = action or decision
+                        conf_str = f"{confidence:.0%}" if confidence else ""
+                        ai_label = f"{decision_str} {conf_str}"
+                markdown_lines.append(
+                    f"|{s['name']}({s['code']})|{s['strategy']}|{s['close']}|{chg}|{s['score']}|{ai_label}|"
+                )
+        else:
+            markdown_lines.append("|股票|策略|价格|涨跌%|得分|")
+            markdown_lines.append("|---|---|---|---|---|")
+            for s in buy_list:
+                chg = f"{s['change_pct']:+.2f}" if s['change_pct'] is not None else "-"
+                markdown_lines.append(
+                    f"|{s['name']}({s['code']})|{s['strategy']}|{s['close']}|{chg}|{s['score']}|"
+                )
+
+    # ── AI 分析摘要区块 ──
+    if agent_decisions:
+        ai_has_buy = any(
+            d.get("action", "") in ("BUY", "买入") or
+            d.get("final_decision", "") in ("买入", "强烈买入")
+            for d in agent_decisions.values()
+        )
+        ai_lines = ["", "**🤖 AI Agent 分析摘要**", ""]
+        for code, d in agent_decisions.items():
+            name = resolve_name(code, load_name_map())
+            ai_label_icon = {
+                "BUY": "🟢", "买入": "🟢", "强烈买入": "🟢",
+                "HOLD": "🟡", "观望": "🟡",
+                "SELL": "🔴", "卖出": "🔴", "卖出/观望": "🔴",
+            }.get(d.get("action", d.get("final_decision", "")), "⚪")
+            risk_level = d.get("risk_level", "")
+            confidence = d.get("confidence", 0)
+            ai_lines.append(
+                f"{ai_label_icon} **{name}**({code})：{d.get('action', d.get('final_decision', '-'))} "
+                f"置信度{confidence:.0%} 风险:{risk_level}"
             )
+        if len(agent_decisions) == 0:
+            ai_lines.append("当日无 AI 分析结果")
+        elements.insert(0, {
+            "tag": "div",
+            "text": {"tag": "lark_md", "content": "\n".join(ai_lines)},
+        })
+        elements.insert(1, {"tag": "hr"})
 
     elements: list[dict] = []
 

@@ -207,3 +207,55 @@ class ResultAdapter:
 def get_result_adapter(db_path: str | None = None) -> ResultAdapter:
     """工厂函数。"""
     return ResultAdapter(db_path)
+
+
+def get_daily_agent_decisions(trade_date: str, db_path: str | None = None) -> dict[str, dict[str, Any]]:
+    """查询某天的所有 Agent 分析决策，返回 {symbol: decision_dict} 映射。
+
+    decision_dict 包含: final_decision, confidence, trading_signal, risk, research
+    供 build_positions.py 和 feishu_signal_notify.py 消费。
+
+    Args:
+        trade_date: "YYYY-MM-DD" 格式的交易日
+        db_path: DuckDB 路径，默认从 settings 读取
+
+    Returns:
+        {symbol: {final_decision, confidence, action, risk_level, risk_score, ...}}
+    """
+    import json
+    import duckdb
+
+    if db_path is None:
+        from config.settings import settings
+        db_path = str(settings.duckdb_path)
+
+    conn = duckdb.connect(db_path, read_only=True)
+    try:
+        rows = conn.execute(
+            "SELECT symbol, result_json FROM agent_analysis_results "
+            "WHERE trade_date = ? ORDER BY created_at DESC",
+            [trade_date],
+        ).fetchall()
+    finally:
+        conn.close()
+
+    decisions: dict[str, dict[str, Any]] = {}
+    seen: set[str] = set()
+    for symbol, result_json in rows:
+        # 同一股票多条记录取最新
+        if symbol in seen:
+            continue
+        seen.add(symbol)
+        try:
+            r = json.loads(result_json)
+        except Exception:
+            continue
+        decisions[symbol] = {
+            "final_decision": r.get("final_decision", ""),
+            "confidence": r.get("confidence", 0.0),
+            "action": r.get("trading_signal", {}).get("action", ""),
+            "risk_level": r.get("risk", {}).get("risk_level", ""),
+            "risk_score": r.get("risk", {}).get("risk_score", 0.0),
+            "recommendation": r.get("research", {}).get("recommendation", ""),
+        }
+    return decisions

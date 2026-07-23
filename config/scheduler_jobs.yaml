@@ -60,7 +60,7 @@ jobs:
       hour: 22
       minute: 7
 
-  # ── 22:15 每个交易日：signal_events 填充 ──
+  # ── 22:17 每个交易日：signal_events 填充+Agent AI 分析 ──
   - id: signal_events
     target: signal_events
     trigger: cron
@@ -69,6 +69,16 @@ jobs:
       day_of_week: mon-fri
       hour: 22
       minute: 17
+
+  # ── 22:18 每个交易日：Agent AI 分析（筛选 top 信号股票，先于建仓和推送） ──
+  - id: agent_analyze
+    target: agent_analyze
+    trigger: cron
+    enabled: true
+    cron:
+      day_of_week: mon-fri
+      hour: 22
+      minute: 18
 
   # ── 22:30 每个交易日：因子计算 ──
   - id: factor_compute
@@ -110,7 +120,7 @@ jobs:
       hour: 22
       minute: 50
 
-  # ── 22:55 每个交易日：持仓更新（信号→建仓） ──
+  # ── 22:55 每个交易日：持仓更新（信号+AI→建仓） ──
   - id: build_positions
     target: build_positions
     trigger: cron
@@ -138,16 +148,6 @@ jobs:
       day_of_week: mon-fri
       hour: 23
       minute: 5
-
-  # ── 23:15 每个交易日：Agent AI 分析（对当日 Top 信号的股票） ──
-  - id: agent_analyze
-    target: agent_analyze
-    trigger: cron
-    enabled: true
-    cron:
-      day_of_week: mon-fri
-      hour: 23
-      minute: 15
 
   # ── 周日 08:00：周度更新 (股票列表 + 日历 + 板块成分) ──
   - id: weekly_metadata

@@ -44,6 +44,7 @@ MAX_POSITIONS = _cfg.max_positions # 单日最大持仓数
 FIXED_SL_PCT = _cfg.fixed_stop_loss_pct  # 固定止损
 SIZER_ENABLED: bool = getattr(_cfg, "position_sizer_enabled", True)
 SIZER_TOTAL_CAPITAL: float = getattr(_cfg, "sizer_total_capital", DEFAULT_TOTAL_CAPITAL)
+AGENT_FILTER_ENABLED: bool = True   # 默认启用 AI 过滤
 
 # ── strategy → position sizing（settings.yaml trading.strategy_alloc）──
 STRATEGY_ALLOC: dict[str, float] = _cfg.strategy_alloc
@@ -52,7 +53,20 @@ MARKET_FILTER_ENABLED: bool = getattr(_cfg, "market_filter_enabled", False)
 MARKET_FILTER_INDEX: str = getattr(_cfg, "market_filter_index", "000001.SH")
 MARKET_FILTER_MA: int = getattr(_cfg, "market_filter_ma_period", 20)
 FACTOR_FILTER_ENABLED: bool = getattr(_cfg, "factor_filter_enabled", False)
-FACTOR_FILTER_TOP_FRACTION: float = 0.25   # 因子得分前 25% 才建仓
+FACTOR_FILTER_TOP_FRACTION: float = 0.25
+
+
+def _load_agent_decisions(trade_date: str) -> dict[str, dict]:
+    """加载当天 AI 分析决策，返回 {code: decision_dict}。
+    失败时返回空 dict（不阻塞建仓流程）。
+    """
+    if not AGENT_FILTER_ENABLED:
+        return {}
+    try:
+        from agent.adapters.result_adapter import get_daily_agent_decisions
+        return get_daily_agent_decisions(trade_date)
+    except Exception:
+        return {}   # 因子得分前 25% 才建仓
 
 
 def _index_above_ma(conn: duckdb.DuckDBPyConnection, target_date: str) -> bool:
@@ -269,6 +283,10 @@ def run(
             if SIZER_ENABLED:
                 sizer = create_sizer(DB_PATH, total_capital=SIZER_TOTAL_CAPITAL)
                 sizer.register_from_config(STRATEGY_ALLOC)
+
+                # 加载 AI 决策
+                agent_decisions = _load_agent_decisions(td)
+
                 candidates = []
                 for _, row in df.iterrows():
                     code = str(row["code"])
@@ -287,6 +305,18 @@ def run(
                             continue
                     if strategy not in STRATEGY_ALLOC or STRATEGY_ALLOC[strategy] <= 0:
                         continue
+
+                    # AI 过滤：排除 AI 判断"卖出/观望"且高置信度的候选
+                    ai = agent_decisions.get(code, {})
+                    if ai:
+                        action = ai.get("action", "")
+                        confidence = ai.get("confidence", 0)
+                        decision = ai.get("final_decision", "")
+                        # 排除：AI 明确卖出/观望且置信度 > 0.6
+                        if (action in ("SELL",) or decision in ("卖出/观望", "卖出")) and confidence > 0.6:
+                            logger.info(f"  SKIP {code}: AI 判断 {action or decision} (conf={confidence:.0%})")
+                            continue
+
                     candidates.append({
                         "code": code,
                         "strategy": strategy,
@@ -295,6 +325,9 @@ def run(
                         "change_pct": float(row.get("change_pct", 0) or 0),
                         "score_b1": float(row.get("score_b1", 0) or 0),
                         "score_b2": float(row.get("score_b2", 0) or 0),
+                        "agent_decision": ai.get("final_decision", ""),
+                        "agent_confidence": ai.get("confidence", 0),
+                        "agent_action": ai.get("action", ""),
                     })
                 allocated = sizer.allocate(candidates)
                 bought_today = 0
@@ -324,6 +357,7 @@ def run(
                     })
             else:
                 # ── 回退到固定仓位 ──
+                agent_decisions = _load_agent_decisions(td)
                 bought_today = 0
                 for _, row in df.iterrows():
                     if bought_today >= open_slots:
@@ -344,6 +378,16 @@ def run(
                             continue
                     if strategy not in STRATEGY_ALLOC or STRATEGY_ALLOC[strategy] <= 0:
                         continue
+
+                    # AI 过滤
+                    ai = agent_decisions.get(code, {})
+                    if ai:
+                        action = ai.get("action", "")
+                        confidence = ai.get("confidence", 0)
+                        decision = ai.get("final_decision", "")
+                        if (action in ("SELL",) or decision in ("卖出/观望", "卖出")) and confidence > 0.6:
+                            logger.info(f"  SKIP {code}: AI 判断 {action or decision} (conf={confidence:.0%})")
+                            continue
                     price = float(row["close"])
                     weight = STRATEGY_ALLOC.get(strategy, 0.10)
                     shares = _position_size(price, weight)
