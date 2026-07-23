@@ -725,8 +725,18 @@ def get_fundamentals(
                 else:
                     sql = f"SELECT * FROM daily_basic WHERE trade_date = '{dt_str}'"
                 db_df = store.query(sql)
-                if not db_df.empty and 'ts_code' in db_df.columns:
-                    db_df['code'] = db_df['ts_code']
+                if not db_df.empty:
+                    if 'ts_code' in db_df.columns:
+                        db_df['code'] = db_df['ts_code']
+                    # 列名映射：聚宽 valuation.field → DuckDB daily_basic column
+                    col_rename = {
+                        'pe_ttm': 'pe_ratio',
+                        'pb': 'pb_ratio',
+                        'ps_ttm': 'ps_ratio',
+                        'total_mv': 'market_cap',
+                        'turnover_rate': 'turnover_ratio',
+                    }
+                    db_df = db_df.rename(columns={k: v for k, v in col_rename.items() if k in db_df.columns})
                 return db_df
             finally:
                 store.close()
@@ -747,6 +757,13 @@ def get_fundamentals(
                 db_df = store.query(sql)
                 if not db_df.empty:
                     db_df['code'] = db_df['ts_code']
+                    # 列名映射：聚宽 indicator.field → PG fina_indicator
+                    col_rename = {
+                        'gross_margin': 'gross_profit_margin',
+                        'netprofit_yoy': 'inc_net_profit_year_on_year',
+                        'or_yoy': 'inc_revenue_year_on_year',
+                    }
+                    db_df = db_df.rename(columns={k: v for k, v in col_rename.items() if k in db_df.columns})
                 return db_df
             finally:
                 store.close()

@@ -36,10 +36,10 @@ class Config:
     MIN_DAILY_AMOUNT = 2e7                   # 日成交额门槛 2000万
 
     # ---------- 训练 ----------
-    TRAIN_YEARS = 0.75
-    SAMPLE_INTERVAL = 60                      # 每个季度取1个快照，加速回测
+    TRAIN_YEARS = 3                         # 原版用 3 年训练数据
+    SAMPLE_INTERVAL = 20                     # 每个月取1个快照
     HIST_MODELS_KEEP = 3
-    MAX_SAMPLE_DAYS_PER_SNAPSHOT = 800          # 每个采样日最多取 1000 个样本，加速训练
+    MAX_SAMPLE_DAYS_PER_SNAPSHOT = 800
 
     # ---------- 标签 ----------
     LABEL_POS_LOW = 0.70
