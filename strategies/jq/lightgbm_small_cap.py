@@ -42,49 +42,73 @@ except ImportError:
     pass
 
 # ====================================================================
-# 适配层：聚宽 get_price(panel=False) 返回 MultiIndex (time, code)，
-# 日期在 index 里不在 columns 里；xy_quant 引擎在 columns 里。
-# 下面三个 helper 统一处理这些差异，上层策略代码无感知。
+# 适配层：聚宽 get_price(panel=False) 格式因 security 类型不同而变化：
+#   - 多股票 → MultiIndex(time, code)
+#   - 单股票 → Index(datetime, name=None)
+#   - xy_quant 引擎 → columns 中有 trade_date
+# 统一先 reset_index，再按列名探测，上层策略代码无感知。
 # ====================================================================
 
-def _date_col(df):
-    """找日期列/索引名，优先 columns 再查 index names。"""
-    for col in ('trade_date', 'time', 'date'):
-        if col in df.columns:
-            return col
-    for name in df.index.names:
-        if name in ('trade_date', 'time', 'date'):
-            return name
-    raise KeyError(f"找不到日期列, columns={list(df.columns)[:10]}, index_names={df.index.names}")
+def _normalize_price_df(df):
+    """把 get_price(panel=False) 返回的 DataFrame 统一展开为标准列格式。
 
-def _normalize_index(df):
-    """如果日期在 index 里（聚宽 MultiIndex），reset_index 把 date + code 展开为 columns。"""
-    dc = _date_col(df)
-    if dc not in df.columns:
-        df = df.reset_index()
+    无论输入是 MultiIndex 还是无名字的 DatetimeIndex，一律 reset_index，
+    保证 code 和日期都在 columns 中。
+    返回标准化后的 DataFrame（不修改原 df）。
+    """
+    if df is None or df.empty:
+        return df
+    df = df.reset_index()
     return df
 
-def _get_price_df(security, **kwargs):
-    """统一的 get_price 包装：强制 panel=False，reset_index 统一列格式。
+def _date_col(df):
+    """在已 normalize 的 DataFrame 中查找日期列名。"""
+    for col in ('trade_date', 'time', 'date', 'level_0'):
+        if col in df.columns:
+            return col
+    # 回退：找第一个 datetime 类型的列
+    from pandas.api.types import is_datetime64_any_dtype
+    for col in df.columns:
+        if is_datetime64_any_dtype(df[col]):
+            return col
+    # 再回退：reset_index 产生的默认名
+    if 'index' in df.columns:
+        return 'index'
+    raise KeyError(f"找不到日期列, columns={list(df.columns)[:10]}")
 
-    聚宽 get_price 默认 panel=True 返回 Panel/DataFrame 多级结构，
-    panel=False 返回 MultiIndex (time, code)。这里统一展开为标准 DataFrame
-    (time, code 均为 columns)，上层代码直接 .code / .groupby('code')。
+def _code_col(df):
+    """在已 normalize 的 DataFrame 中查找代码列名。"""
+    for col in ('code', 'ts_code', 'level_1'):
+        if col in df.columns:
+            return col
+    # 聚宽 multi-index reset → level_0=time, level_1=code
+    # xy_quant 已经 code column
+    return 'code'
+
+def _get_price_df(security, **kwargs):
+    """统一的 get_price 包装：强制 panel=False，展开 index 到 columns。
+
+    聚宽 get_price 默认 panel=True 返回 Panel/DataFrame 多级结构。
+    这里统一用 panel=False，然后 reset_index 展开为标准 DataFrame。
+    上层代码可直接 .code / .groupby('code')。
     """
     df = get_price(security, panel=False, **kwargs)
     if df is None or df.empty:
         return df
-    df = _normalize_index(df)
+    df = df.reset_index()
+    # 统一列名：看到 ts_code → code
+    if 'ts_code' in df.columns and 'code' not in df.columns:
+        df = df.rename(columns={'ts_code': 'code'})
     return df
 
 def _sort_by_date(df, cols=None):
-    """按日期列排序。已 normalize，直接找日期列。"""
+    """按日期列排序。"""
     dc = _date_col(df)
     sort_cols = list(cols or []) + [dc]
     return df.sort_values(sort_cols)
 
 def _drop_date_dup(df, cols=None):
-    """groupby 后取每组最新一条。已 normalize，直接操作。"""
+    """groupby 后取每组最新一条。"""
     return _sort_by_date(df, cols).groupby(cols or 'code').tail(1)
 
 # ====================================================================
